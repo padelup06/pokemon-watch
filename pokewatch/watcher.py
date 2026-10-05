@@ -108,7 +108,11 @@ class Watcher:
         cfg.setdefault("watchlist", [])
         self.cfg = cfg
         self.store = Store(s.get("database", "pokewatch.db"))
-        self.fetcher = Fetcher(s.get("browser", "auto"), headless=not s.get("browser_visible", False))
+        self.fetcher = Fetcher(
+            s.get("browser", "auto"),
+            headless=not s.get("browser_visible", False),
+            minimized=s.get("browser_minimized", True),
+        )
         self.notifier = Notifier(cfg["alerts"])
         self.delay = (float(s.get("min_delay_seconds", 2)), float(s.get("max_delay_seconds", 6)))
         self.keywords = s.get("keywords", ["pokemon"])

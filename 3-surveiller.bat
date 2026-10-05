@@ -8,6 +8,6 @@ if not exist webhook.txt (
 )
 set /p POKEWATCH_DISCORD_WEBHOOK=<webhook.txt
 echo Surveillance en cours : vos produits environ toutes les minutes (JouéClub, La Grande Récré et Cultura en parallèle). Laissez cette fenetre ouverte.
-echo Une fenetre de navigateur va s'ouvrir regulierement : c'est normal, ne la fermez pas.
+echo Une fenetre de navigateur (Cultura) reste reduite dans la barre des taches : ne la fermez pas.
 python -m pokewatch -c config.pc.toml watch
 pause

@@ -53,15 +53,26 @@ def fetch_http(url: str, timeout: float = 20) -> str:
 class BrowserFetcher:
     """Navigateur Chromium (invisible ou en fenêtre) réutilisé entre les requêtes.
 
+    Un seul onglet sert à toutes les pages (pas de nouvel onglet à chaque vérification)
+    et, en mode fenêtre, celle-ci est réduite dans la barre des tâches dès le départ.
+
     Nécessite : pip install playwright && playwright install chromium
     """
 
-    def __init__(self, headless: bool = True) -> None:
+    # Une fenêtre réduite ne doit pas être mise au ralenti par Chrome (pages et minuteries).
+    _ARGS = [
+        "--disable-backgrounding-occluded-windows",
+        "--disable-renderer-backgrounding",
+        "--disable-background-timer-throttling",
+    ]
+
+    def __init__(self, headless: bool = True, minimized: bool = True) -> None:
         self.headless = headless
-        self._api_pages: dict = {}
+        self.minimized = minimized
         self._pw = None
         self._browser = None
         self._context = None
+        self._page = None
 
     def _start(self) -> None:
         try:
@@ -71,15 +82,38 @@ class BrowserFetcher:
                 "Playwright non installé (pip install playwright && playwright install chromium)"
             ) from e
         self._pw = sync_playwright().start()
-        self._browser = self._pw.chromium.launch(headless=self.headless)
+        self._browser = self._pw.chromium.launch(headless=self.headless, args=self._ARGS)
         # On garde l'user-agent réel du navigateur : un faux user-agent incohérent
         # avec le reste de l'empreinte est justement ce que repèrent les anti-robots.
         self._context = self._browser.new_context(locale="fr-FR", viewport={"width": 1366, "height": 900})
+        self._page = self._context.new_page()
+        if not self.headless and self.minimized:
+            self._minimize()
 
-    def fetch(self, url: str, timeout: float = 30) -> str:
+    def _minimize(self) -> None:
+        try:
+            cdp = self._context.new_cdp_session(self._page)
+            wid = cdp.send("Browser.getWindowForTarget")["windowId"]
+            cdp.send("Browser.setWindowBounds", {"windowId": wid, "bounds": {"windowState": "minimized"}})
+            state = cdp.send("Browser.getWindowBounds", {"windowId": wid})["bounds"].get("windowState")
+            if state != "minimized":
+                # Réduction refusée par le système : on range la fenêtre hors de l'écran.
+                cdp.send("Browser.setWindowBounds", {"windowId": wid, "bounds": {"left": -32000, "top": -32000}})
+        except Exception:
+            pass  # pas grave : la fenêtre reste simplement visible
+
+    def _tab(self):
         if self._context is None:
             self._start()
-        page = self._context.new_page()
+        if self._page is None or self._page.is_closed():
+            # onglet fermé à la main : on en rouvre un, toujours réduit
+            self._page = self._context.new_page()
+            if not self.headless and self.minimized:
+                self._minimize()
+        return self._page
+
+    def fetch(self, url: str, timeout: float = 30) -> str:
+        page = self._tab()
         try:
             page.goto(url, wait_until="domcontentloaded", timeout=timeout * 1000)
             try:
@@ -89,24 +123,17 @@ class BrowserFetcher:
             return page.content()
         except Exception as e:
             raise FetchError(str(e)) from e
-        finally:
-            page.close()
 
     def fetch_json(self, url: str, origin: str, timeout: float = 30):
         """Appel d'API fait depuis une page du site (cookies et protections du site
         inclus), comme le ferait la page elle-même."""
-        if self._context is None:
-            self._start()
-        page = self._api_pages.get(origin)
-        if page is None or page.is_closed():
-            page = self._context.new_page()
+        page = self._tab()
+        if not page.url.startswith(origin):
             try:
                 page.goto(origin + "/", wait_until="domcontentloaded", timeout=timeout * 1000)
                 page.wait_for_timeout(3000)
             except Exception as e:
-                page.close()
                 raise FetchError(str(e)) from e
-            self._api_pages[origin] = page
         try:
             status, text = page.evaluate(
                 """async (u) => {
@@ -118,8 +145,6 @@ class BrowserFetcher:
         except Exception as e:
             raise FetchError(str(e)) from e
         if status != 200:
-            self._api_pages.pop(origin, None)
-            page.close()
             raise FetchError(f"HTTP {status}")
         try:
             return json.loads(text)
@@ -127,23 +152,22 @@ class BrowserFetcher:
             raise FetchError("réponse non JSON (page anti-robot ?)") from e
 
     def close(self) -> None:
-        self._api_pages = {}
         if self._browser:
             self._browser.close()
         if self._pw:
             self._pw.stop()
-        self._pw = self._browser = self._context = None
+        self._pw = self._browser = self._context = self._page = None
 
 
 class Fetcher:
-    def __init__(self, browser_mode: str = "auto", headless: bool = True) -> None:
+    def __init__(self, browser_mode: str = "auto", headless: bool = True, minimized: bool = True) -> None:
         """browser_mode : "never", "auto" (si l'enseigne l'exige ou si HTTP échoue), "always".
 
         headless=False ouvre une vraie fenêtre de navigateur : plus lent, mais passe
         beaucoup mieux les anti-robots (DataDome sur la Fnac, Cloudflare sur Cultura).
         """
         self.browser_mode = browser_mode
-        self._browser = BrowserFetcher(headless)
+        self._browser = BrowserFetcher(headless, minimized)
 
     def get(self, url: str, needs_browser: bool = False) -> str:
         if self.browser_mode == "always" or (self.browser_mode == "auto" and needs_browser):

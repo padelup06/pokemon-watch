@@ -16,6 +16,7 @@ min_delay_seconds = 2
 max_delay_seconds = 5
 browser = "auto"                 # navigateur pour Cultura, accès direct pour JouéClub / La Grande Récré
 browser_visible = true
+browser_minimized = true         # fenêtre réduite dans la barre des tâches (ne pas la fermer)
 keywords = ["pokemon"]
 max_products_per_search = 30
 track_discovered = false         # ne surveille que vos produits

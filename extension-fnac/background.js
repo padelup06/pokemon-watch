@@ -8,6 +8,7 @@ const DEFAULTS = {
   intervalMinutes: 3,
   products: [
     "https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Dresseur-d-Elite/a23200296/w-4",
+    "https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Amphinobi-ex/a23200310/w-4",
   ],
   state: {},
 };
@@ -26,6 +27,7 @@ chrome.runtime.onInstalled.addListener(schedule);
 chrome.runtime.onStartup.addListener(schedule);
 chrome.alarms.onAlarm.addListener((a) => { if (a.name === "pokewatch") checkAll(); });
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
+  if (msg === "defaults") reply(DEFAULTS.products);
   if (msg === "reschedule") schedule().then(() => reply(true));
   if (msg === "check-now") checkAll().then((r) => reply(r));
   if (msg === "test-discord") sendDiscord("✅ Test Pokémon Watch — Fnac : les alertes arrivent bien ici.").then((r) => reply(r));

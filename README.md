@@ -17,7 +17,7 @@ Le logiciel :
 |---|---|---|---|
 | JouéClub | ✅ | ✅ | ✅ |
 | La Grande Récré | ✅ | ✅ | ✅ |
-| Fnac | — | ✅ extension Chrome | ⚠️ ligne « magasin » de la fiche, à valider |
+| Fnac | — | ✅ extension Chrome | ✅ magasin choisi sur fnac.com (extension Chrome) |
 | Cultura | ✅ depuis votre PC | ✅ depuis votre PC | ✅ depuis votre PC |
 
 ⚠️ = bloqué depuis un serveur. Depuis votre PC, avec `browser_visible = true` (une vraie fenêtre
@@ -41,7 +41,9 @@ retrait « sous X jours » sont les seuls signaux d'arrivage accessibles de l'ex
 La Fnac (DataDome) bloque aussi les navigateurs pilotés par un programme. L'extension tourne
 dans **votre** Chrome habituel : toutes les N minutes elle ouvre vos fiches Fnac dans un onglet
 en arrière-plan, lit la disponibilité (schema.org puis textes de la page), referme l'onglet et
-alerte sur Discord. Si la Fnac demande une vérification, l'extension vous prévient et c'est vous
+alerte sur Discord. Elle lit le bloc d'achat de la fiche (`data-automation-id` :
+`pdp-buyBox-webAvailability-status` pour le stock en ligne, `pdp-buyBox-storeAvailability-status`
+pour le magasin choisi sur fnac.com) et ignore les vendeurs tiers. Si la Fnac demande une vérification, l'extension vous prévient et c'est vous
 qui la validez — rien n'est contourné.
 
 Installation : `chrome://extensions` → activer le *Mode développeur* → *Charger l'extension non

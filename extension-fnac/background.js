@@ -32,7 +32,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   return true;
 });
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
 
 function waitForLoad(tabId, timeoutMs = 45000) {
   return new Promise((resolve) => {
@@ -64,6 +64,10 @@ async function sendDiscord(content) {
   return r.ok ? "ok" : `erreur ${r.status}`;
 }
 
+function notify(message) {
+  chrome.notifications.create({ type: "basic", iconUrl: "icon.png", title: "Pokémon Watch — Fnac", message });
+}
+
 const BUYABLE = ["en_stock", "precommande"];
 const LABEL = { en_stock: "✅ EN STOCK", precommande: "🕒 PRÉCOMMANDE", rupture: "❌ rupture", inconnu: "❔ inconnu" };
 let running = false;
@@ -87,17 +91,26 @@ async function checkAll() {
       }
       if (r.status === "erreur") { report.push(`${url} : ${r.error}`); continue; }
       const name = r.name || url;
-      // Premier relevé : on enregistre sans alerter.
-      if (prev.status && !BUYABLE.includes(prev.status) && BUYABLE.includes(r.status)) {
+      const known = Boolean(prev.status); // premier relevé : on enregistre sans alerter
+      if (known && !BUYABLE.includes(prev.status) && BUYABLE.includes(r.status)) {
         const price = r.price ? ` — ${r.price.toFixed(2)} €` : "";
-        await sendDiscord(`${LABEL[r.status]} chez Fnac\n${name}${price}\n${url}`);
-        chrome.notifications.create({ type: "basic", iconUrl: "icon.png", title: "Pokémon Watch — Fnac", message: `${LABEL[r.status]} : ${name}` });
+        await sendDiscord(`${LABEL[r.status]} EN LIGNE chez Fnac\n${name}${price}\n${url}`);
+        notify(`${LABEL[r.status]} en ligne : ${name}`);
       }
-      if (r.store && prev.store !== r.store && prev.status) {
-        await sendDiscord(`🏬 Fnac — magasin : ${r.store}\n${name}\n${url}`);
+      const storeRank = { rupture: 0, inconnu: 0, arrivage: 1, en_stock: 2 };
+      if (known && r.storeStatus && (storeRank[r.storeStatus] || 0) > (storeRank[prev.storeStatus] || 0)) {
+        const head = r.storeStatus === "en_stock" ? "🏬 EN STOCK EN MAGASIN" : "🚚 ARRIVAGE EN MAGASIN";
+        await sendDiscord(`${head} — ${r.storeName || "Fnac"}\n${name}\n${r.storeText}\n${url}`);
+        notify(`${head} (${r.storeName || "Fnac"}) : ${name}`);
       }
-      state[url] = { status: r.status, name, price: r.price, store: r.store, source: r.source, at: new Date().toISOString() };
-      report.push(`${name} : ${LABEL[r.status] || r.status} (via ${r.source || "?"})${r.store ? " · " + r.store : ""}`);
+      if (!r.web && !r.source) {
+        report.push(`${name} : bloc de disponibilité introuvable (la Fnac a peut-être changé sa page)`);
+      }
+      state[url] = {
+        status: r.status, storeStatus: r.storeStatus, storeName: r.storeName, name,
+        at: new Date().toISOString(),
+      };
+      report.push(`${name}\n   en ligne : ${r.web || LABEL[r.status]}\n   ${r.storeName || "magasin"} : ${r.storeText || "—"}`);
       await sleep(3000 + Math.random() * 4000);
     }
     await chrome.storage.local.set({ state });

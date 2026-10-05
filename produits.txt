@@ -28,3 +28,5 @@ https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-dres
 # Cultura — produits sans fiche en ligne : recherche par code-barres (EAN).
 # Alerte « fiche en ligne » dès que Cultura publie la fiche, puis suivi du stock (PC uniquement).
 https://www.cultura.com/search/results?search_query=0196214147225 | 30e anniv. — Coffret Collection Poster (Cultura)
+https://www.cultura.com/search/results?search_query=0196214147102 | 30e anniv. — Coffret 4 boosters Nymphali-ex (Cultura)
+https://www.cultura.com/search/results?search_query=0196214147164 | 30e anniv. — Coffret 4 boosters Amphinobi-ex (Cultura)

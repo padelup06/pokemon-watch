@@ -28,3 +28,7 @@ rayon_km = 45
 
 [[searches]]
 url = "https://www.cultura.com/search/results?search_query=pokemon%20carte"
+
+# Rayon « Cartes Pokémon » de Cultura : nouveautés
+[[searches]]
+url = "https://www.cultura.com/cartes-a-jouer/cartes-pokemon.html"

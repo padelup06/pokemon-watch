@@ -64,6 +64,33 @@ async function pokewatchExtract() {
   // Pas de lecture de prix : dans le bloc d'achat, le prix affiché peut être celui d'un
   // vendeur tiers (ex. 296,10 € chez SuperPromos pour un coffret à 64,99 €).
 
+  // Disponibilité dans chaque Fnac proche : même appel que le panneau « Retirer en magasin »
+  // de la fiche (liste des magasins autour du magasin choisi, avec « Disponible / Indisponible
+  // en rayon »).
+  result.stores = null;
+  try {
+    const prid = (location.pathname.match(/\/a(\d+)/) || [])[1];
+    const m = document.documentElement.outerHTML.match(/storeid["'=:\s]+(\d+)/i);
+    const storeid = (m && m[1] !== "0" && m[1]) || "173"; // 173 = Fnac Cannes (magasin choisi le 6/10)
+    if (prid) {
+      const formid = crypto.randomUUID().replace(/-/g, "");
+      const r = await fetch(`/nav/api/storepickup/storepickuppopin?prid=${prid}&storeid=${storeid}` +
+        `&formid=${formid}&offerref=00000000-0000-0000-0000-000000000000&catalog=1`, { credentials: "include" });
+      if (r.ok) {
+        const pop = new DOMParser().parseFromString(await r.text(), "text/html");
+        const list = [];
+        for (const li of pop.querySelectorAll("li.liStore")) {
+          const name = (li.querySelector(".storeName") || {}).textContent;
+          const col = li.querySelector('[class*="liCol_2"]');
+          if (!name || !col) continue;
+          const text = col.textContent.replace(/\s+/g, " ").trim();
+          list.push({ name: name.trim(), text, status: pokewatchClassify(text, "store") });
+        }
+        if (list.length) result.stores = list;
+      }
+    }
+  } catch (e) { /* le bloc d'achat suffit si cet appel échoue */ }
+
   // Diagnostic affiché dans la fenêtre de l'extension.
   const offers = [];
   for (const sc of document.querySelectorAll('script[type="application/ld+json"]')) {

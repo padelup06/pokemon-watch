@@ -127,7 +127,16 @@ async function checkAll() {
         notify(`${LABEL[r.status]} en ligne : ${name}`);
       }
       const storeRank = { rupture: 0, inconnu: 0, arrivage: 1, en_stock: 2 };
-      if (known && r.storeStatus && (storeRank[r.storeStatus] || 0) > (storeRank[prev.storeStatus] || 0)) {
+      if (r.stores) {
+        // Tous les magasins proches : alerte pour ceux qui passent en stock (ou en arrivage).
+        const before = Object.fromEntries((prev.stores || []).map((s) => [s.name, s.status]));
+        const better = prev.stores ? r.stores.filter((s) => (storeRank[s.status] || 0) > (storeRank[before[s.name]] || 0)) : [];
+        if (better.length) {
+          const head = better.some((s) => s.status === "en_stock") ? "🏬 EN STOCK EN MAGASIN" : "🚚 ARRIVAGE EN MAGASIN";
+          await sendDiscord(`${head} — Fnac\n${name}\n${better.map((s) => `  • Fnac ${s.name} : ${s.text}`).join("\n")}\n${url}`);
+          notify(`${head} : ${name} (${better.map((s) => s.name).join(", ")})`);
+        }
+      } else if (known && r.storeStatus && (storeRank[r.storeStatus] || 0) > (storeRank[prev.storeStatus] || 0)) {
         const head = r.storeStatus === "en_stock" ? "🏬 EN STOCK EN MAGASIN" : "🚚 ARRIVAGE EN MAGASIN";
         await sendDiscord(`${head} — ${r.storeName || "Fnac"}\n${name}\n${r.storeText}\n${url}`);
         notify(`${head} (${r.storeName || "Fnac"}) : ${name}`);
@@ -137,9 +146,10 @@ async function checkAll() {
       }
       state[url] = {
         status: r.status, storeStatus: r.storeStatus, storeName: r.storeName, name,
-        web: r.web, storeText: r.storeText, source: r.source, diag: r.diag, at: new Date().toISOString(),
+        web: r.web, storeText: r.storeText, source: r.source, diag: r.diag, stores: r.stores, at: new Date().toISOString(),
       };
-      report.push(`${name}\n   en ligne : ${r.web || LABEL[r.status]}\n   ${r.storeName || "magasin"} : ${r.storeText || "—"}`);
+      report.push(`${name}\n   en ligne : ${r.web || LABEL[r.status]}\n   ` +
+        (r.stores ? r.stores.map((s) => `Fnac ${s.name} : ${s.text}`).join("\n   ") : `${r.storeName || "magasin"} : ${r.storeText || "—"}`));
       await sleep(3000 + Math.random() * 4000);
     }
     await chrome.storage.local.set({ state });

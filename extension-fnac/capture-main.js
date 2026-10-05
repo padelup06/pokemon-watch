@@ -11,7 +11,7 @@
     window.postMessage({ __pokewatchCapture: {
       at: new Date().toISOString(), page: location.pathname, method, url: String(url),
       body: typeof body === "string" ? body.slice(0, 1500) : body ? "(non texte)" : "",
-      status, response: (text || "").slice(0, 2500),
+      status, response: (text || "").slice(0, 6000),
     } }, location.origin);
   };
   const origFetch = window.fetch;

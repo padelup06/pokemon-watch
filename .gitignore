@@ -12,3 +12,5 @@ config.toml
 *.db
 __pycache__/
 .venv/
+webhook.txt
+exploration-*.json

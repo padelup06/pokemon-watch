@@ -1,0 +1,23 @@
+# Surveillance sur votre PC : Fnac et Cultura (leurs anti-robots bloquent les serveurs,
+# mais laissent passer une vraie fenêtre de navigateur sur une connexion personnelle).
+# JouéClub et La Grande Récré sont déjà surveillés par GitHub : inutile de les répéter ici.
+
+[settings]
+database = "pokewatch-pc.db"
+interval_minutes = 10
+jitter_seconds = 90
+min_delay_seconds = 4
+max_delay_seconds = 9
+browser = "always"
+browser_visible = true
+keywords = ["pokemon"]
+max_products_per_search = 30
+
+[alerts]
+# Rempli automatiquement par surveiller-fnac-cultura.bat (fichier webhook.txt)
+
+[[searches]]
+url = "https://www.fnac.com/SearchResult/ResultList.aspx?Search=pokemon+carte"
+
+[[searches]]
+url = "https://www.cultura.com/search/results?search_query=pokemon%20carte"

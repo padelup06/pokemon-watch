@@ -6,6 +6,7 @@
   python -m pokewatch test URL --cp 69002   ... et le stock des magasins proches
   python -m pokewatch dashboard        tableau de bord web
   python -m pokewatch notify-test      envoie une alerte de test
+  python -m pokewatch explorer URL     enregistre les requêtes « stock magasin » d'un site
 """
 
 from __future__ import annotations
@@ -37,7 +38,15 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--host", default="127.0.0.1")
     d.add_argument("--port", type=int, default=8000)
     sub.add_parser("notify-test")
+    e = sub.add_parser("explorer")
+    e.add_argument("url")
+    e.add_argument("-o", "--output", default="exploration.json")
     args = ap.parse_args(argv)
+
+    if args.cmd == "explorer":
+        from .explore import explore
+
+        return explore(args.url, args.output)
 
     if args.cmd == "test":
         retailer = retailer_for_url(args.url)

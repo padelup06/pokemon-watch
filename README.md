@@ -24,6 +24,18 @@ Le logiciel :
 de navigateur s'ouvre), ça passe en général. À vérifier chez vous avec
 `python -m pokewatch test --visible "<url>"`.
 
+## Fnac et Cultura : sur votre PC (Windows)
+
+Leurs anti-robots bloquent tous les serveurs (GitHub compris) : ces deux enseignes sont relevées
+depuis votre PC, avec une vraie fenêtre de navigateur. Téléchargez le dépôt (bouton vert *Code* →
+*Download ZIP*), décompressez-le, puis double-cliquez dans l'ordre :
+
+1. `1-installer.bat` — installe ce qu'il faut (une seule fois) ;
+2. `2-explorer-fnac.bat` et `2-explorer-cultura.bat` — sur une fiche produit, cliquez sur la
+   disponibilité en magasin et tapez votre code postal : le fichier `exploration-*.json` produit
+   permet de brancher le stock magasin de ces enseignes (cookies non enregistrés) ;
+3. `3-surveiller-fnac-cultura.bat` — surveillance continue (laissez la fenêtre ouverte).
+
 ## Installation
 
 ```bash

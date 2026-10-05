@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><title>Pokémon Watch — Fnac</title>
+<style>
+body{font:14px system-ui,sans-serif;margin:16px;min-width:420px;max-width:640px;color:#1d2330}
+h1{font-size:18px;margin:0 0 12px}label{display:block;font-weight:600;margin:12px 0 4px}
+input,textarea{width:100%;box-sizing:border-box;padding:6px;font:inherit}textarea{height:120px}
+button{margin:12px 8px 0 0;padding:6px 12px;font:inherit;cursor:pointer}
+pre{background:#f3f4f6;padding:8px;white-space:pre-wrap;font-size:12px}.muted{color:#6b7280;font-size:12px}
+</style></head><body>
+<h1>Pokémon Watch — Fnac</h1>
+<label for="webhook">Lien du webhook Discord</label>
+<input id="webhook" placeholder="https://discord.com/api/webhooks/…">
+<label for="products">Fiches Fnac à surveiller (une par ligne)</label>
+<textarea id="products"></textarea>
+<label for="interval">Vérifier toutes les (minutes)</label>
+<input id="interval" type="number" min="1" value="3">
+<p class="muted">Gardez Chrome ouvert. Les fiches s'ouvrent brièvement en arrière-plan puis se referment.</p>
+<button id="save">Enregistrer</button><button id="test">Tester Discord</button><button id="now">Vérifier maintenant</button>
+<pre id="out"></pre>
+<script src="options.js"></script>
+</body></html>

@@ -17,7 +17,7 @@ Le logiciel :
 |---|---|---|---|
 | JouéClub | ✅ | ✅ | ✅ |
 | La Grande Récré | ✅ | ✅ | ✅ |
-| Fnac | ❌ bloque même depuis un PC (DataDome) | ❌ | ❌ |
+| Fnac | — | ✅ extension Chrome | ⚠️ ligne « magasin » de la fiche, à valider |
 | Cultura | ✅ depuis votre PC | ✅ depuis votre PC | ✅ depuis votre PC |
 
 ⚠️ = bloqué depuis un serveur. Depuis votre PC, avec `browser_visible = true` (une vraie fenêtre
@@ -35,6 +35,18 @@ de navigateur s'ouvre), ça passe en général. À vérifier chez vous avec
 
 Les enseignes ne publient pas leurs livraisons prévues en magasin : le réassort affiché et le
 retrait « sous X jours » sont les seuls signaux d'arrivage accessibles de l'extérieur.
+
+## Fnac : extension Chrome (`extension-fnac/`)
+
+La Fnac (DataDome) bloque aussi les navigateurs pilotés par un programme. L'extension tourne
+dans **votre** Chrome habituel : toutes les N minutes elle ouvre vos fiches Fnac dans un onglet
+en arrière-plan, lit la disponibilité (schema.org puis textes de la page), referme l'onglet et
+alerte sur Discord. Si la Fnac demande une vérification, l'extension vous prévient et c'est vous
+qui la validez — rien n'est contourné.
+
+Installation : `chrome://extensions` → activer le *Mode développeur* → *Charger l'extension non
+empaquetée* → choisir le dossier `extension-fnac`. Puis cliquer sur l'icône de l'extension :
+coller le webhook Discord, les fiches Fnac, *Enregistrer*, *Tester Discord*, *Vérifier maintenant*.
 
 ## Cultura : sur votre PC (Windows)
 

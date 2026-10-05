@@ -74,14 +74,14 @@ def _context(html: str) -> tuple[dict, str]:
 
 
 def proximis_store_stock(product_url: str, lat: float, lon: float, radius_km: int = 30) -> list[StoreStock]:
-    # L'API renvoie parfois une 502 passagère : un second essai suffit en général.
-    try:
-        return _proximis_store_stock(product_url, lat, lon, radius_km)
-    except FetchError as e:
-        if "HTTP Error 5" not in str(e):
-            raise
-        time.sleep(3)
-        return _proximis_store_stock(product_url, lat, lon, radius_km)
+    # L'API renvoie des 502 quand on l'interroge trop vite : on réessaie en espaçant.
+    for wait in (5, 15, None):
+        try:
+            return _proximis_store_stock(product_url, lat, lon, radius_km)
+        except FetchError as e:
+            if wait is None or "HTTP Error 5" not in str(e):
+                raise
+            time.sleep(wait)
 
 
 def _proximis_store_stock(product_url: str, lat: float, lon: float, radius_km: int) -> list[StoreStock]:

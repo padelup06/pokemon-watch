@@ -5,7 +5,7 @@
 //   pdp-buyBox-storeAvailability-status  -> « Indisponible en magasin », « Retrait 1h »…
 // Les offres de vendeurs tiers (marketplace) et les « Ajouter au panier » des produits
 // recommandés sont ignorés : seul le bloc d'achat Fnac compte.
-function pokewatchExtract() {
+async function pokewatchExtract() {
   // Tout doit être DANS cette fonction : Chrome n'injecte dans la page que son code,
   // pas les autres fonctions du fichier.
   const pokewatchClassify = function (text, kind) {
@@ -27,6 +27,10 @@ function pokewatchExtract() {
     const el = document.querySelector(`[data-automation-id="${id}"]`);
     return el ? el.textContent.replace(/\s+/g, " ").trim() : null;
   };
+  // Le bloc d'achat peut s'afficher après le chargement : on l'attend jusqu'à 10 s.
+  for (let i = 0; i < 20 && !pick("pdp-buyBox-webAvailability-status"); i++) {
+    await new Promise((r) => setTimeout(r, 500));
+  }
   const title = pick("pdp-productInformation-title");
   const h1 = document.querySelector("h1");
   const result = {
@@ -41,18 +45,40 @@ function pokewatchExtract() {
   result.storeStatus = result.storeText ? pokewatchClassify(result.storeText, "store") : null;
   // Pas de lecture de prix : dans le bloc d'achat, le prix affiché peut être celui d'un
   // vendeur tiers (ex. 296,10 € chez SuperPromos pour un coffret à 64,99 €).
+
+  // Diagnostic affiché dans la fenêtre de l'extension.
+  const offers = [];
+  for (const sc of document.querySelectorAll('script[type="application/ld+json"]')) {
+    try {
+      const d = JSON.parse(sc.textContent);
+      for (const node of [].concat(d && d["@graph"] ? d["@graph"] : d)) {
+        for (const o of [].concat((node && node.offers) || [])) {
+          for (const sub of [].concat(o.offers || o)) {
+            const seller = sub.seller ? (sub.seller.name || String(sub.seller)) : "";
+            offers.push({ seller, price: sub.price || sub.lowPrice || null,
+                          availability: String(sub.availability || "").split("/").pop() });
+          }
+        }
+      }
+    } catch (e) { /* bloc JSON-LD illisible */ }
+  }
+  result.diag = {
+    url: location.href,
+    titre: document.title.slice(0, 80),
+    reperes: document.querySelectorAll("[data-automation-id]").length,
+    blocAchat: Boolean(result.web),
+    offres: offers.slice(0, 6),
+  };
+
   if (!result.web) {
-    // Page sans bloc d'achat reconnu (mise en page changée ?) : on se rabat sur schema.org.
+    // Pas de bloc d'achat : on ne conclut « en stock » que pour une offre vendue par la Fnac
+    // elle-même, jamais pour un vendeur tiers (marketplace).
     result.source = null;
-    for (const s of document.querySelectorAll('script[type="application/ld+json"]')) {
-      try {
-        const d = JSON.parse(s.textContent);
-        const offers = [].concat((d && d.offers) || []);
-        const av = offers.map((o) => String(o.availability || "").split("/").pop().toLowerCase());
-        if (av.some((a) => a === "instock")) { result.status = "en_stock"; result.source = "jsonld"; }
-        else if (av.some((a) => a === "outofstock")) { result.status = "rupture"; result.source = "jsonld"; }
-      } catch (e) { /* bloc JSON-LD illisible */ }
-    }
+    const fnac = offers.filter((o) => /fnac/i.test(o.seller));
+    const av = fnac.map((o) => o.availability.toLowerCase());
+    if (av.includes("instock")) { result.status = "en_stock"; result.source = "jsonld (vendu par Fnac)"; }
+    else if (av.includes("outofstock")) { result.status = "rupture"; result.source = "jsonld (vendu par Fnac)"; }
+    else { result.status = "inconnu"; result.source = offers.length ? "jsonld (vendeurs tiers seulement)" : null; }
   }
   return result;
 }

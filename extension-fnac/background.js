@@ -58,7 +58,7 @@ async function readProduct(url) {
   const tab = await chrome.tabs.create({ url, active: false });
   try {
     await waitForLoad(tab.id);
-    await sleep(2500); // laisse la page afficher la disponibilité
+    await sleep(1500); // la lecture attend elle-même le bloc d'achat (jusqu'à 10 s)
     const results = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: pokewatchExtract });
     const result = results && results[0] && results[0].result;
     // Page d'erreur, onglet fermé, vérification anti-robot… : pas de résultat exploitable.
@@ -137,7 +137,7 @@ async function checkAll() {
       }
       state[url] = {
         status: r.status, storeStatus: r.storeStatus, storeName: r.storeName, name,
-        web: r.web, storeText: r.storeText, at: new Date().toISOString(),
+        web: r.web, storeText: r.storeText, source: r.source, diag: r.diag, at: new Date().toISOString(),
       };
       report.push(`${name}\n   en ligne : ${r.web || LABEL[r.status]}\n   ${r.storeName || "magasin"} : ${r.storeText || "—"}`);
       await sleep(3000 + Math.random() * 4000);

@@ -9,8 +9,12 @@ chrome.storage.local.get(["webhook", "products", "intervalMinutes", "state"]).th
   $("interval").value = s.intervalMinutes || 3;
   const when = (iso) => (iso ? new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "?");
   const st = Object.entries(s.state || {}).map(([u, v]) =>
-    `${v.name || u}  (relevé à ${when(v.at)})\n   en ligne : ${v.web || v.status || "?"}\n   ${v.storeName || "magasin"} : ${v.storeText || "—"}` +
-    (v.error ? `\n   ⚠ dernière lecture : ${v.error}` : ""));
+    `${v.name || u}  (relevé à ${when(v.at)})\n   en ligne : ${v.web || `${v.status || "?"} (${v.source || "bloc d'achat introuvable"})`}\n   ${v.storeName || "magasin"} : ${v.storeText || "—"}` +
+    (v.error ? `\n   ⚠ dernière lecture : ${v.error}` : "") +
+    (v.diag && !v.diag.blocAchat
+      ? `\n   🔎 diagnostic : page « ${v.diag.titre} », ${v.diag.reperes} repères, offres : ` +
+        (v.diag.offres.map((o) => `${o.seller || "?"} ${o.price || ""}€ ${o.availability}`).join(" ; ") || "aucune")
+      : ""));
   out(st.length ? ["Derniers relevés :", ...st] : "Pas encore de relevé : cliquez sur « Vérifier maintenant ».");
 });
 

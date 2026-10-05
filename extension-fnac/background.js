@@ -30,12 +30,16 @@ async function schedule() {
 
 chrome.runtime.onInstalled.addListener(schedule);
 chrome.runtime.onStartup.addListener(schedule);
-chrome.alarms.onAlarm.addListener((a) => { if (a.name === "pokewatch") checkAll(); });
+chrome.alarms.onAlarm.addListener((a) => {
+  if (a.name === "pokewatch") checkAll().catch((e) => console.warn("Pokémon Watch :", e));
+});
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg === "defaults") reply(DEFAULTS.products);
   if (msg === "reschedule") schedule().then(() => reply(true));
-  if (msg === "check-now") checkAll().then((r) => reply(r));
-  if (msg === "test-discord") sendDiscord("✅ Test Pokémon Watch — Fnac : les alertes arrivent bien ici.").then((r) => reply(r));
+  if (msg === "check-now") checkAll().then(reply, (e) => reply(`Erreur : ${e}`));
+  if (msg === "test-discord") {
+    sendDiscord("✅ Test Pokémon Watch — Fnac : les alertes arrivent bien ici.").then(reply, (e) => reply(`Erreur : ${e}`));
+  }
   return true;
 });
 
@@ -55,24 +59,32 @@ async function readProduct(url) {
   try {
     await waitForLoad(tab.id);
     await sleep(2500); // laisse la page afficher la disponibilité
-    const [res] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: pokewatchExtract });
-    return res.result;
+    const results = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: pokewatchExtract });
+    const result = results && results[0] && results[0].result;
+    // Page d'erreur, onglet fermé, vérification anti-robot… : pas de résultat exploitable.
+    return result || { status: "erreur", error: "page non lue (chargement incomplet ?)" };
   } catch (e) {
     return { status: "erreur", error: String(e) };
   } finally {
-    chrome.tabs.remove(tab.id).catch(() => {});
+    chrome.tabs.remove(tab.id).catch(() => {}); // onglet déjà fermé : rien à faire
   }
 }
 
 async function sendDiscord(content) {
   const { webhook } = await settings();
   if (!webhook) return "pas de webhook";
-  const r = await fetch(webhook, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
-  return r.ok ? "ok" : `erreur ${r.status}`;
+  try {
+    const r = await fetch(webhook, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
+    return r.ok ? "ok" : `erreur ${r.status}`;
+  } catch (e) {
+    return `envoi Discord impossible : ${e}`;
+  }
 }
 
 function notify(message) {
-  chrome.notifications.create({ type: "basic", iconUrl: "icon.png", title: "Pokémon Watch — Fnac", message });
+  try {
+    chrome.notifications.create({ type: "basic", iconUrl: "icon.png", title: "Pokémon Watch — Fnac", message }, () => void chrome.runtime.lastError);
+  } catch (e) { /* notifications Windows désactivées : l'alerte Discord suffit */ }
 }
 
 const BUYABLE = ["en_stock", "precommande"];
@@ -86,7 +98,13 @@ async function checkAll() {
     const { products, state } = await settings();
     const report = [];
     for (const url of products) {
-      const r = await readProduct(url);
+      let r;
+      try {
+        r = await readProduct(url);
+      } catch (e) {
+        r = { status: "erreur", error: String(e) };
+      }
+      if (!r) r = { status: "erreur", error: "page non lue" };
       const prev = state[url] || {};
       if (r.status === "blocked") {
         if (!prev.blockedNotified) {

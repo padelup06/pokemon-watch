@@ -14,9 +14,11 @@ from urllib.parse import urljoin
 from .fetch import FetchError, Fetcher
 from .instore import (
     PROXIMIS_RETAILERS,
+    QUANTITY_RETAILERS,
     STORE_RETAILERS,
     cultura_store_stock,
     geocode,
+    proximis_estimate_quantities,
     proximis_restock,
     proximis_store_stock,
 )
@@ -255,7 +257,22 @@ class Watcher:
         incoming = sum(1 for s in stocks if s.incoming and not s.in_stock)
         print(f"    magasins à {self.radius_km} km : {in_stock}/{len(stocks)} en stock, {incoming} en arrivage")
         if newly:
+            self.add_quantities(url, retailer, newly, html)
             self.notifier.send(format_store_alert(retailer.name, name, url, newly))
+
+    def add_quantities(self, url: str, retailer, stores, html: str | None) -> None:
+        """Nombre estimé d'exemplaires pour les magasins qui viennent de passer en stock."""
+        targets = {s.store_id for s in stores if s.in_stock}
+        if not targets or retailer.key not in QUANTITY_RETAILERS or not self.cfg["settings"].get("estimate_quantity", True):
+            return
+        try:
+            qty = proximis_estimate_quantities(url, *self._coords, self.radius_km, targets, html=html)
+        except FetchError as e:
+            print(f"[{retailer.name}] quantités non estimées : {e}", flush=True)
+            return
+        for s in stores:
+            if s.store_id in qty:
+                s.qty, s.qty_capped = qty[s.store_id]
 
     def _products(self) -> dict[str, str | None]:
         configured = {p["url"]: p.get("label") for p in self.cfg["products"]}

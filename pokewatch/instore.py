@@ -25,6 +25,9 @@ from .fetch import USER_AGENTS, FetchError
 PROXIMIS_RETAILERS = {"joueclub", "lagranderecre"}
 # Enseignes dont le stock magasin passe par le navigateur (site protégé par un anti-robot).
 BROWSER_STORE_RETAILERS = {"cultura"}
+# Enseignes dont l'API magasin tient compte de la quantité demandée (vérifié le 5/10/2026 :
+# La Grande Récré oui — 2/13/19 selon les magasins ; JouéClub non — « 50+ » partout).
+QUANTITY_RETAILERS = {"lagranderecre"}
 STORE_RETAILERS = PROXIMIS_RETAILERS | BROWSER_STORE_RETAILERS
 
 _UA = USER_AGENTS[0]
@@ -46,6 +49,9 @@ class StoreStock:
     # Pas en rayon mais commandable en retrait dans ce magasin (envoi depuis l'entrepôt) :
     # c'est le signal d'un arrivage.
     incoming: bool = False
+    # Nombre estimé d'exemplaires (voir proximis_estimate_quantities) ; None = non estimé.
+    qty: int | None = None
+    qty_capped: bool = False  # True : au moins `qty`, la recherche s'est arrêtée au plafond
 
     @property
     def code(self) -> int:
@@ -123,21 +129,69 @@ def _session(origin: str, page_url: str, fresh: bool = False):
 
 
 def proximis_store_stock(
-    product_url: str, lat: float, lon: float, radius_km: int = 30, html: str | None = None
+    product_url: str, lat: float, lon: float, radius_km: int = 30, html: str | None = None, quantity: int = 1
 ) -> list[StoreStock]:
-    """Stock magasin. `html` : la fiche déjà chargée (évite de la recharger)."""
+    """Stock magasin. `html` : la fiche déjà chargée (évite de la recharger).
+    `quantity` : nombre d'exemplaires demandés (un magasin qui en a moins n'est pas « en stock »)."""
     try:
-        return _proximis_store_stock(product_url, lat, lon, radius_km, html, fresh=False)
+        return _proximis_store_stock(product_url, lat, lon, radius_km, html, fresh=False, quantity=quantity)
     except FetchError as e:
         if "HTTP Error 5" not in str(e):
             raise
     # Erreur serveur : une seule nouvelle tentative, avec une session neuve.
     time.sleep(3)
-    return _proximis_store_stock(product_url, lat, lon, radius_km, None, fresh=True)
+    return _proximis_store_stock(product_url, lat, lon, radius_km, None, fresh=True, quantity=quantity)
+
+
+def proximis_estimate_quantities(
+    product_url: str, lat: float, lon: float, radius_km: int, store_ids: set[str],
+    html: str | None = None, cap: int = 50, pause: float = 1.0, ask=None,
+) -> dict[str, tuple[int, bool]]:
+    """Estime le nombre d'exemplaires par magasin.
+
+    Le site n'affiche pas de quantité, mais l'API répond à « ce magasin peut-il fournir
+    N exemplaires ? ». Pour chaque magasin, on cherche le plus grand N accepté
+    (dichotomie ; une requête répond pour tous les magasins à la fois).
+    Retourne {store_id: (quantité, plafonné)} ; plafonné = « au moins `cap` ».
+    """
+    ask = ask or (lambda q: proximis_store_stock(product_url, lat, lon, radius_km, html=html, quantity=q))
+    cache: dict[int, set[str]] = {}
+
+    def ok_at(q: int) -> set[str]:
+        if q not in cache:
+            if cache:
+                time.sleep(pause)
+            cache[q] = {s.store_id for s in ask(q) if s.in_stock}
+        return cache[q]
+
+    result = {}
+    for sid in store_ids:
+        if sid not in ok_at(1):
+            continue
+        lo, hi = 1, None  # lo : accepté ; hi : refusé
+        q = 2
+        while hi is None:
+            if q >= cap:
+                if sid in ok_at(cap):
+                    lo = cap
+                    break
+                hi = cap
+            elif sid in ok_at(q):
+                lo, q = q, q * 2
+            else:
+                hi = q
+        while hi is not None and hi - lo > 1:
+            mid = (lo + hi) // 2
+            if sid in ok_at(mid):
+                lo = mid
+            else:
+                hi = mid
+        result[sid] = (lo, hi is None)
+    return result
 
 
 def _proximis_store_stock(
-    product_url: str, lat: float, lon: float, radius_km: int, html: str | None, fresh: bool
+    product_url: str, lat: float, lon: float, radius_km: int, html: str | None, fresh: bool, quantity: int = 1
 ) -> list[StoreStock]:
     origin = re.match(r"https://[^/]+", product_url).group(0)
     try:
@@ -159,7 +213,7 @@ def _proximis_store_stock(
                     "useAsDefault": True,
                     "distance": f"{radius_km}kilometers",
                 },
-                "skuQuantities": {sku: 1},
+                "skuQuantities": {sku: quantity},
                 "forReservation": False,
                 "forPickUp": False,
                 "allowSelect": True,

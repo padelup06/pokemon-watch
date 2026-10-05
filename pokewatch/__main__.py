@@ -15,7 +15,14 @@ import argparse
 import sys
 
 from .fetch import FetchError, Fetcher
-from .instore import STORE_RETAILERS, cultura_store_stock, geocode, proximis_store_stock
+from .instore import (
+    QUANTITY_RETAILERS,
+    STORE_RETAILERS,
+    cultura_store_stock,
+    geocode,
+    proximis_estimate_quantities,
+    proximis_store_stock,
+)
 from .notify import Notifier
 from .parse import parse_availability
 from .retailers import retailer_for_url
@@ -34,6 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     t.add_argument("--visible", action="store_true", help="ouvre une vraie fenêtre de navigateur (Fnac, Cultura)")
     t.add_argument("--cp", help="code postal ou ville : affiche aussi le stock des magasins proches")
     t.add_argument("--rayon", type=int, default=30, help="rayon en km autour du code postal (défaut 30)")
+    t.add_argument("--quantite", action="store_true", help="estime le nombre d'exemplaires par magasin (La Grande Récré)")
     d = sub.add_parser("dashboard")
     d.add_argument("--host", default="127.0.0.1")
     d.add_argument("--port", type=int, default=8000)
@@ -84,9 +92,20 @@ def main(argv: list[str] | None = None) -> int:
             finally:
                 fetcher.close()
             print(f"Magasins à moins de {args.rayon} km de {args.cp} : {len(stocks)}")
+            qty = {}
+            if args.quantite and retailer.key not in QUANTITY_RETAILERS:
+                print(f"Quantités : non disponibles pour {retailer.name} (son API ne tient pas compte de la quantité)")
+            elif args.quantite:
+                qty = proximis_estimate_quantities(
+                    args.url, *geocode(args.cp), args.rayon, {s.store_id for s in stocks if s.in_stock}, html=html
+                )
             for st in stocks:
                 dist = f" ({st.distance_km:g} km)" if st.distance_km is not None else ""
-                print(f"  {'✅' if st.in_stock else '❌'} {st.name}{dist} : {st.label}")
+                q = ""
+                if st.store_id in qty:
+                    n, capped = qty[st.store_id]
+                    q = f" — ~{n}{'+' if capped else ''} exemplaires"
+                print(f"  {'✅' if st.in_stock else '❌'} {st.name}{dist} : {st.label}{q}")
         return 0
 
     try:

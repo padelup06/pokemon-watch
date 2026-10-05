@@ -32,7 +32,10 @@ def format_store_alert(retailer: str, name: str | None, url: str, stores) -> str
     lines = [f"{head} — {retailer}", name or url]
     for st in (in_stock + incoming)[:10]:
         dist = f" ({st.distance_km:g} km)" if st.distance_km is not None else ""
-        lines.append(f"  • {st.name}{dist} : {st.label}")
+        qty = ""
+        if getattr(st, "qty", None):
+            qty = f" — ~{st.qty}{'+' if st.qty_capped else ''} en stock"
+        lines.append(f"  • {st.name}{dist} : {st.label}{qty}")
     if len(stores) > 10:
         lines.append(f"  • … et {len(stores) - 10} autres magasins")
     lines.append(url)

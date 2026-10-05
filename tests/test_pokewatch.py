@@ -257,6 +257,27 @@ class EanSearchTests(unittest.TestCase):
         self.assertEqual(len(sent), 2)
 
 
+class QuantityTests(unittest.TestCase):
+    def test_estimate_by_dichotomy(self):
+        from pokewatch.instore import StoreStock, proximis_estimate_quantities
+        real = {"nice": 2, "cagnes": 13, "grasse": 19, "loin": 80}
+        calls = []
+
+        def ask(q):
+            calls.append(q)
+            return [StoreStock(k, k, 1.0, v >= q, "") for k, v in real.items()]
+
+        res = proximis_estimate_quantities("u", 0, 0, 45, set(real), cap=50, pause=0, ask=ask)
+        self.assertEqual(res, {"nice": (2, False), "cagnes": (13, False), "grasse": (19, False), "loin": (50, True)})
+        self.assertLess(len(set(calls)), 16)  # requêtes partagées entre magasins
+
+    def test_alert_shows_quantity(self):
+        from pokewatch.instore import StoreStock
+        from pokewatch.notify import format_store_alert
+        st = StoreStock("1", "La grande recré GRASSE", 25.9, True, "En stock", qty=19)
+        self.assertIn("GRASSE (25.9 km) : En stock — ~19 en stock", format_store_alert("La Grande Récré", "Mini Tin", "u", [st]))
+
+
 class CulturaTests(unittest.TestCase):
     """Réponses réelles de l'API GraphQL de Cultura (capturées le 5 octobre 2026, recherche 06400)."""
 

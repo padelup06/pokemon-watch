@@ -42,6 +42,22 @@ class StoreStock:
     in_stock: bool
     label: str  # libellé du site : "En stock", "En rupture", "Stock limité"...
     url: str | None = None
+    # Pas en rayon mais commandable en retrait dans ce magasin (envoi depuis l'entrepôt) :
+    # c'est le signal d'un arrivage.
+    incoming: bool = False
+
+    @property
+    def code(self) -> int:
+        return 1 if self.in_stock else 2 if self.incoming else 0
+
+
+def proximis_restock(html: str) -> str | None:
+    """Réassort planifié affiché par JouéClub / La Grande Récré (champ restockPlanned)."""
+    m = re.search(r'"restockPlanned":true[^{}]*?"formattedRestockDate":"([^"]*)"', html)
+    if m:
+        return m.group(1) or "date non communiquée"
+    m = re.search(r'"restockDescription":"([^"]+)"', html)
+    return m.group(1) if m else None
 
 
 def geocode(query: str) -> tuple[float, float]:
@@ -137,22 +153,36 @@ def _proximis_store_stock(product_url: str, lat: float, lon: float, radius_km: i
     except Exception as e:
         raise FetchError(f"stock magasin indisponible : {e}") from e
 
-    result = []
-    for item in data.get("items", []):
-        stock = (item.get("storeShipping") or {}).get("stock") or {}
-        common = item.get("common") or {}
-        coords = item.get("coordinates") or {}
-        result.append(
-            StoreStock(
-                store_id=str(common.get("id") or common.get("code")),
-                name=common.get("title") or "?",
-                distance_km=round(coords["distance"], 1) if coords.get("distance") is not None else None,
-                in_stock=bool(stock.get("available")),
-                label=stock.get("thresholdTitle") or ("En stock" if stock.get("available") else "En rupture"),
-                url=(common.get("URL") or {}).get("canonical"),
-            )
-        )
-    return result
+    return [_proximis_item(item) for item in data.get("items", [])]
+
+
+def _proximis_item(item: dict) -> StoreStock:
+    shipping = item.get("storeShipping") or {}
+    stock = shipping.get("stock") or {}
+    common = item.get("common") or {}
+    coords = item.get("coordinates") or {}
+    available = bool(stock.get("available"))
+    pickup = shipping.get("formattedPickUpDateTime") or shipping.get("storeFormattedPickUpDateTime")
+    # hasStoreStock (La Grande Récré) distingue le stock en rayon de l'envoi depuis l'entrepôt.
+    in_store = available and shipping.get("hasStoreStock") is not False
+    incoming = not in_store and bool(pickup or available)
+    if in_store:
+        label = stock.get("thresholdTitle") or "En stock"
+        if pickup:
+            label += f", retrait {pickup}"
+    elif incoming:
+        label = f"Arrivage : retrait {pickup}" if pickup else "Arrivage : commandable en retrait"
+    else:
+        label = stock.get("thresholdTitle") or "En rupture"
+    return StoreStock(
+        store_id=str(common.get("id") or common.get("code")),
+        name=common.get("title") or "?",
+        distance_km=round(coords["distance"], 1) if coords.get("distance") is not None else None,
+        in_stock=in_store,
+        label=label,
+        url=(common.get("URL") or {}).get("canonical"),
+        incoming=incoming,
+    )
 
 
 # --- Cultura ----------------------------------------------------------------

@@ -1,0 +1,9 @@
+# Produits à surveiller en priorité (vérifiés chaque minute sur le PC, toutes les 10 min sur GitHub).
+# Une adresse de fiche produit par ligne. Nom facultatif après « | ».
+# Enseignes gérées : JouéClub, La Grande Récré, Cultura.
+# Les lignes qui commencent par # sont ignorées.
+
+# Exemples (le 5 octobre 2026 : en ligne chez JouéClub, en rupture chez La Grande Récré,
+# absents des magasins du 06) — remplacez-les par vos produits :
+https://www.joueclub.fr/pokemon/pokebox-mega-puissances-mega-dracolosse-0196214141735.html | Pokébox Méga Dracolosse (JouéClub)
+https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/pokebox-mega-puissances-mega-dracolosse-ex-pokemon.html | Pokébox Méga Dracolosse (La Grande Récré)

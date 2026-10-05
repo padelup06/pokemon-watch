@@ -1,25 +1,30 @@
-# Surveillance sur votre PC : Cultura (son anti-robot bloque les serveurs, mais laisse
-# passer une vraie fenêtre de navigateur sur une connexion personnelle).
+# Surveillance sur votre PC :
+# - vos produits prioritaires (produits.txt), toutes enseignes, chaque minute ;
+# - Cultura (son anti-robot bloque les serveurs, mais laisse passer une vraie fenêtre de
+#   navigateur sur une connexion personnelle).
 # La Fnac bloque même ainsi (DataDome) : utilisez plutôt l'alerte « M'avertir » de la Fnac.
-# JouéClub et La Grande Récré sont déjà surveillés par GitHub : inutile de les répéter ici.
+# Les nouveautés JouéClub et La Grande Récré sont repérées par GitHub (config.ci.toml).
 
 [settings]
 database = "pokewatch-pc.db"
-interval_minutes = 10
+interval_minutes = 10            # passage complet (nouveautés Cultura + tous les produits connus)
+watchlist_file = "produits.txt"   # vos produits prioritaires…
+watchlist_interval_seconds = 60   # … revérifiés chaque minute entre deux passages complets
 jitter_seconds = 90
-min_delay_seconds = 4
-max_delay_seconds = 9
-browser = "always"
+min_delay_seconds = 2
+max_delay_seconds = 5
+browser = "auto"                 # navigateur pour Cultura, accès direct pour JouéClub / La Grande Récré
 browser_visible = true
 keywords = ["pokemon"]
 max_products_per_search = 30
 
-# Stock magasin Cultura autour de chez vous (Cultura Nice et Cultura Mandelieu pour le 06)
+# Stock magasin autour de chez vous (06 : Cultura Nice / Mandelieu, JouéClub Nice, Antibes, Grasse…,
+# La Grande Récré Nice, Cagnes, Cannes)
 code_postal = "06000"
 rayon_km = 45
 
 [alerts]
-# Rempli automatiquement par 3-surveiller-cultura.bat (fichier webhook.txt)
+# Rempli automatiquement par 3-surveiller.bat (fichier webhook.txt)
 
 [[searches]]
 url = "https://www.cultura.com/search/results?search_query=pokemon%20carte"

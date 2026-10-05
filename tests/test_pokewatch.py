@@ -106,6 +106,64 @@ class RealPagePatternsTests(unittest.TestCase):
         self.assertEqual(_context(html), ({"websiteId": 100052, "sectionId": 103089, "pageId": 100312}, "896744"))
 
 
+class ArrivalTests(unittest.TestCase):
+    """Structure réelle des réponses La Grande Récré / JouéClub (5 octobre 2026)."""
+
+    def item(self, shipping):
+        return {"common": {"id": 1, "title": "La grande récré NICE"}, "coordinates": {"distance": 1.5},
+                "storeShipping": shipping}
+
+    def test_in_store(self):
+        from pokewatch.instore import _proximis_item
+        st = _proximis_item(self.item({"stock": {"available": True, "thresholdTitle": "En stock"}, "hasStoreStock": True,
+                                       "formattedPickUpDateTime": "aujourd'hui à partir de 15h00"}))
+        self.assertEqual((st.code, st.label), (1, "En stock, retrait aujourd'hui à partir de 15h00"))
+
+    def test_warehouse_pickup_is_arrival(self):
+        from pokewatch.instore import _proximis_item
+        st = _proximis_item(self.item({"stock": {"available": True}, "hasStoreStock": False,
+                                       "formattedPickUpDateTime": "jeudi 8 octobre"}))
+        self.assertEqual((st.code, st.label), (2, "Arrivage : retrait jeudi 8 octobre"))
+
+    def test_out_of_stock(self):
+        from pokewatch.instore import _proximis_item
+        st = _proximis_item(self.item({"stock": {"available": False, "thresholdTitle": "En rupture"}}))
+        self.assertEqual((st.code, st.label), (0, "En rupture"))
+
+    def test_restock(self):
+        from pokewatch.instore import proximis_restock
+        base = '"cartBox":{"allCategories":{"restockDescription":null,"restockDate":%s,"restockPlanned":%s,"formattedRestockDate":%s}'
+        self.assertIsNone(proximis_restock(base % ("null", "false", "null")))
+        self.assertEqual(proximis_restock(base % ('"2026-10-20"', "true", '"20 octobre"')), "20 octobre")
+
+    def test_watchlist_file(self):
+        from pokewatch.watcher import load_watchlist
+        path = os.path.join(tempfile.mkdtemp(), "produits.txt")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("# mes produits\n\nhttps://www.joueclub.fr/pokemon/x-0196214141735.html | Pokébox Dracolosse\n"
+                    "https://www.cultura.com/p-y-1.html\n")
+        self.assertEqual(load_watchlist(path), [
+            {"url": "https://www.joueclub.fr/pokemon/x-0196214141735.html", "label": "Pokébox Dracolosse"},
+            {"url": "https://www.cultura.com/p-y-1.html", "label": None}])
+
+    def test_store_arrival_transitions(self):
+        from pokewatch.instore import StoreStock
+        from pokewatch.notify import format_store_alert
+        s = Store(os.path.join(tempfile.mkdtemp(), "t.db"))
+        u = "https://www.joueclub.fr/pokemon/x-0196214141735.html"
+        s.add_product(u, "joueclub")
+        out = StoreStock("1", "JouéClub Nice", 1.4, False, "En rupture")
+        arr = StoreStock("1", "JouéClub Nice", 1.4, False, "Arrivage : retrait jeudi", incoming=True)
+        ok = StoreStock("1", "JouéClub Nice", 1.4, True, "En stock")
+        s.record_store_stock(u, "joueclub", "X", [out])
+        newly = s.record_store_stock(u, "joueclub", "X", [arr])
+        self.assertEqual([x.code for x in newly], [2])
+        self.assertIn("ARRIVAGE", format_store_alert("JouéClub", "X", u, newly))
+        self.assertEqual([r["store_name"] for r in s.stores_incoming(u)], ["JouéClub Nice"])
+        self.assertEqual([x.code for x in s.record_store_stock(u, "joueclub", "X", [ok])], [1])
+        self.assertEqual(s.record_store_stock(u, "joueclub", "X", [arr]), [])  # en stock -> arrivage : pas d'alerte
+
+
 class CulturaTests(unittest.TestCase):
     """Réponses réelles de l'API GraphQL de Cultura (capturées le 5 octobre 2026, recherche 06400)."""
 

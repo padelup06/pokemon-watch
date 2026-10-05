@@ -26,14 +26,21 @@ def format_alert(kind: str, retailer: str, name: str | None, url: str, status: s
 
 
 def format_store_alert(retailer: str, name: str | None, url: str, stores) -> str:
-    lines = [f"🏬 EN STOCK EN MAGASIN — {retailer}", name or url]
-    for st in stores[:10]:
+    in_stock = [st for st in stores if st.in_stock]
+    incoming = [st for st in stores if not st.in_stock]
+    head = "🏬 EN STOCK EN MAGASIN" if in_stock else "🚚 ARRIVAGE EN MAGASIN"
+    lines = [f"{head} — {retailer}", name or url]
+    for st in (in_stock + incoming)[:10]:
         dist = f" ({st.distance_km:g} km)" if st.distance_km is not None else ""
         lines.append(f"  • {st.name}{dist} : {st.label}")
     if len(stores) > 10:
         lines.append(f"  • … et {len(stores) - 10} autres magasins")
     lines.append(url)
     return "\n".join(lines)
+
+
+def format_restock_alert(retailer: str, name: str | None, url: str, restock: str) -> str:
+    return f"📦 RÉASSORT PRÉVU chez {retailer} : {restock}\n{name or url}\n{url}"
 
 
 def should_alert(old: str, new: str) -> bool:

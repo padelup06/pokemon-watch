@@ -54,18 +54,27 @@ def render(store: Store, retailer: str | None = None) -> str:
         rname = RETAILERS[p["retailer"]].name if p["retailer"] in RETAILERS else p["retailer"]
         err = f'<div class="muted">⚠ {escape(p["last_error"])}</div>' if p["last_error"] else ""
         price = f'{p["price"]:.2f} €' if p["price"] is not None else "—"
-        stores = store.stores_in_stock(p["url"])
-        if stores:
+        def _names(rows):
             names = ", ".join(
                 escape(st["store_name"]) + (f' <span class="muted">{st["distance_km"]:g} km</span>' if st["distance_km"] is not None else "")
-                for st in stores[:3]
+                for st in rows[:3]
             )
-            more = f' <span class="muted">+{len(stores) - 3}</span>' if len(stores) > 3 else ""
-            shops = f'<span class="b en_stock">{len(stores)}</span> {names}{more}'
+            return names + (f' <span class="muted">+{len(rows) - 3}</span>' if len(rows) > 3 else "")
+
+        stores, incoming = store.stores_in_stock(p["url"]), store.stores_incoming(p["url"])
+        parts = []
+        if stores:
+            parts.append(f'<div><span class="b en_stock">{len(stores)} en stock</span> {_names(stores)}</div>')
+        if incoming:
+            parts.append(f'<div><span class="b precommande">🚚 {len(incoming)} arrivage</span> {_names(incoming)}</div>')
+        if parts:
+            shops = "".join(parts)
         elif p["store_check"]:
             shops = '<span class="muted">aucun</span>'
         else:
             shops = '<span class="muted">—</span>'
+        if p["restock"]:
+            err += f'<div><span class="b precommande">📦 réassort prévu : {escape(p["restock"])}</span></div>'
         prod_html.append(
             f"<tr><td>{_badge(p['status'])}</td><td>{escape(rname)}</td>"
             f'<td><a href="{escape(p["url"])}" target="_blank" rel="noopener">{escape(name or p["url"])}</a>{err}</td>'

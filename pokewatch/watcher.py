@@ -11,8 +11,15 @@ from html import unescape
 from urllib.parse import urljoin
 
 from .fetch import FetchError, Fetcher
-from .instore import PROXIMIS_RETAILERS, STORE_RETAILERS, cultura_store_stock, geocode, proximis_store_stock
-from .notify import Notifier, format_alert, format_store_alert, should_alert
+from .instore import (
+    PROXIMIS_RETAILERS,
+    STORE_RETAILERS,
+    cultura_store_stock,
+    geocode,
+    proximis_restock,
+    proximis_store_stock,
+)
+from .notify import Notifier, format_alert, format_restock_alert, format_store_alert, should_alert
 from .parse import UNKNOWN, parse_availability
 from .retailers import retailer_for_url
 from .store import Store
@@ -25,6 +32,7 @@ ENV_OVERRIDES = {
 
 
 def load_config(path: str) -> dict:
+    config_path = path
     with open(path, "rb") as f:
         cfg = tomllib.load(f)
     cfg.setdefault("settings", {})
@@ -39,7 +47,29 @@ def load_config(path: str) -> dict:
         settings["rayon_km"] = int(os.environ["POKEWATCH_RAYON_KM"])
     cfg.setdefault("products", [])
     cfg.setdefault("searches", [])
+    # Liste de surveillance : un fichier texte, une adresse de fiche produit par ligne.
+    watch_file = settings.get("watchlist_file")
+    cfg["watchlist"] = []
+    if watch_file:
+        path = os.path.join(os.path.dirname(os.path.abspath(config_path)), watch_file)
+        cfg["watchlist"] = load_watchlist(path)
     return cfg
+
+
+def load_watchlist(path: str) -> list[dict]:
+    """Lit produits.txt : une URL par ligne, label facultatif après « | », # pour commenter."""
+    items = []
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line.startswith("http"):  # lignes vides et commentaires
+                    continue
+                url, _, label = line.partition("|")
+                items.append({"url": url.strip(), "label": label.strip() or None})
+    except FileNotFoundError:
+        pass
+    return items
 
 
 def extract_product_links(html: str, base_url: str) -> list[str]:
@@ -66,6 +96,9 @@ def matches_keywords(url: str, keywords: list[str]) -> bool:
 class Watcher:
     def __init__(self, cfg: dict) -> None:
         s = cfg["settings"]
+        cfg.setdefault("products", [])
+        cfg.setdefault("searches", [])
+        cfg.setdefault("watchlist", [])
         self.cfg = cfg
         self.store = Store(s.get("database", "pokewatch.db"))
         self.fetcher = Fetcher(s.get("browser", "auto"), headless=not s.get("browser_visible", False))
@@ -76,6 +109,9 @@ class Watcher:
         self.location = s.get("code_postal") or s.get("ville")
         self.radius_km = int(s.get("rayon_km", 30))
         self._coords: tuple[float, float] | None = None
+        # GitHub : laisse la liste de surveillance au PC (vérifiée chaque minute) pour éviter les doublons.
+        self.exclude_watchlist = bool(s.get("exclude_watchlist", False))
+        self.watch_interval = float(s.get("watchlist_interval_seconds", 0))
 
     def _pause(self) -> None:
         time.sleep(random.uniform(*self.delay))
@@ -120,6 +156,10 @@ class Watcher:
         # old == "" : premier relevé du produit, on enregistre sans alerter.
         if old and should_alert(old, av.status):
             self.notifier.send(format_alert("stock", retailer.name, name, url, av.status, av.price))
+        if retailer.key in PROXIMIS_RETAILERS:
+            restock = self.store.set_restock(url, proximis_restock(html))
+            if restock and old:
+                self.notifier.send(format_restock_alert(retailer.name, name, url, restock))
         if self.location and retailer.key in STORE_RETAILERS and av.status != UNKNOWN:
             self.check_stores(url, retailer, name)
 
@@ -135,29 +175,52 @@ class Watcher:
             print(f"[{retailer.name}] ⚠ magasins : {e}")
             return
         newly = self.store.record_store_stock(url, retailer.key, name, stocks)
-        in_stock = [s for s in stocks if s.in_stock]
-        print(f"    magasins à {self.radius_km} km : {len(in_stock)}/{len(stocks)} en stock")
+        in_stock = sum(1 for s in stocks if s.in_stock)
+        incoming = sum(1 for s in stocks if s.incoming and not s.in_stock)
+        print(f"    magasins à {self.radius_km} km : {in_stock}/{len(stocks)} en stock, {incoming} en arrivage")
         if newly:
             self.notifier.send(format_store_alert(retailer.name, name, url, newly))
 
+    def _products(self) -> dict[str, str | None]:
+        configured = {p["url"]: p.get("label") for p in self.cfg["products"]}
+        if not self.exclude_watchlist:
+            configured.update({p["url"]: p.get("label") for p in self.cfg["watchlist"]})
+        return configured
+
+    def run_watchlist(self) -> None:
+        for p in self.cfg["watchlist"]:
+            self.check(p["url"], p.get("label"))
+            self._pause()
+
     def run_once(self) -> None:
         self.discover()
-        configured = {p["url"]: p.get("label") for p in self.cfg["products"]}
-        urls = list(configured) + [u for u in sorted(self.store.known_urls()) if u not in configured]
+        configured = self._products()
+        skip = {p["url"] for p in self.cfg["watchlist"]} if self.exclude_watchlist else set()
+        urls = list(configured) + [u for u in sorted(self.store.known_urls()) if u not in configured and u not in skip]
         for url in urls:
             self.check(url, configured.get(url))
             self._pause()
 
     def run_forever(self) -> None:
+        """Passage complet toutes les `interval_minutes` ; entre deux, la liste de
+        surveillance est revérifiée toutes les `watchlist_interval_seconds`."""
         s = self.cfg["settings"]
         interval = float(s.get("interval_minutes", 10)) * 60
         jitter = float(s.get("jitter_seconds", 60))
+        fast = self.watch_interval > 0 and bool(self.cfg["watchlist"]) and not self.exclude_watchlist
+        next_full = 0.0
         try:
             while True:
-                start = time.time()
-                self.run_once()
-                wait = max(30.0, interval - (time.time() - start) + random.uniform(-jitter, jitter))
-                print(f"— prochain passage dans {wait / 60:.1f} min —", flush=True)
-                time.sleep(wait)
+                if time.time() >= next_full:
+                    self.run_once()
+                    next_full = time.time() + max(60.0, interval + random.uniform(-jitter, jitter))
+                    print(f"— prochain passage complet dans {(next_full - time.time()) / 60:.1f} min —", flush=True)
+                elif fast:
+                    self.run_watchlist()
+                if fast:
+                    wait = min(next_full - time.time(), self.watch_interval + random.uniform(0, 10))
+                else:
+                    wait = next_full - time.time()
+                time.sleep(max(5.0, wait))
         finally:
             self.fetcher.close()

@@ -24,6 +24,18 @@ Le logiciel :
 de navigateur s'ouvre), ça passe en général. À vérifier chez vous avec
 `python -m pokewatch test --visible "<url>"`.
 
+## Ce qui déclenche une alerte
+
+- ✅ **En stock en ligne** : un produit passe de rupture à disponible sur le site ;
+- 📦 **Réassort prévu** : JouéClub / La Grande Récré affichent une date de réassort ;
+- 🏬 **En stock en magasin** : un magasin proche l'a en rayon ;
+- 🚚 **Arrivage en magasin** : pas encore en rayon, mais commandable en retrait dans ce magasin
+  (envoi depuis l'entrepôt), avec la date de retrait annoncée ;
+- 🆕 **Nouveau produit** apparu sur les pages surveillées.
+
+Les enseignes ne publient pas leurs livraisons prévues en magasin : le réassort affiché et le
+retrait « sous X jours » sont les seuls signaux d'arrivage accessibles de l'extérieur.
+
 ## Cultura : sur votre PC (Windows)
 
 Son anti-robot bloque tous les serveurs (GitHub compris) : Cultura est relevée depuis votre PC,
@@ -33,7 +45,11 @@ personnel : pour elle, utilisez l'alerte de disponibilité intégrée au site / 
 
 1. `1-installer.bat` — installe ce qu'il faut (une seule fois) ;
 2. `2-tester-cultura.bat` — un passage complet de test, résultat dans `test-cultura.txt` ;
-3. `3-surveiller-cultura.bat` — surveillance continue (laissez la fenêtre ouverte).
+3. `3-surveiller.bat` — surveillance continue (laissez la fenêtre ouverte) : vos produits
+   prioritaires chaque minute, plus Cultura.
+
+`modifier-mes-produits.bat` ouvre `produits.txt` : une adresse de fiche produit par ligne
+(JouéClub, La Grande Récré ou Cultura). Ce sont les produits vérifiés chaque minute.
 
 ## Installation
 

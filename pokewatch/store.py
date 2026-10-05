@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS store_stock (
     store_id    TEXT NOT NULL,
     store_name  TEXT NOT NULL,
     distance_km REAL,
-    in_stock    INTEGER NOT NULL,
+    in_stock    INTEGER NOT NULL,  -- 1 = en stock, 2 = arrivage (commandable en retrait), 0 = non
     label       TEXT,
     last_check  TEXT NOT NULL,
     last_change TEXT NOT NULL,
@@ -48,6 +48,10 @@ CREATE TABLE IF NOT EXISTS searches (
 """
 
 
+STORE_STATES = {0: "rupture", 1: "en_stock", 2: "arrivage"}
+_RANK = {0: 0, 2: 1, 1: 2}  # rupture < arrivage < en stock
+
+
 def now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
@@ -57,6 +61,11 @@ class Store:
         self.db = sqlite3.connect(path)
         self.db.row_factory = sqlite3.Row
         self.db.executescript(SCHEMA)
+        # Colonnes ajoutées après coup : on complète les bases existantes.
+        cols = {r[1] for r in self.db.execute("PRAGMA table_info(products)")}
+        if "restock" not in cols:
+            self.db.execute("ALTER TABLE products ADD COLUMN restock TEXT")
+            self.db.commit()
 
     def get(self, url: str) -> sqlite3.Row | None:
         return self.db.execute("SELECT * FROM products WHERE url = ?", (url,)).fetchone()
@@ -117,9 +126,9 @@ class Store:
     def record_store_stock(self, url: str, retailer: str, name: str | None, stocks) -> list:
         """Enregistre le stock magasin par magasin.
 
-        Retourne les magasins qui viennent de passer en stock. Un magasin absent
-        de la réponse est considéré en rupture (La Grande Récré ne liste que les
-        magasins qui ont le produit).
+        Retourne les magasins dont la situation vient de s'améliorer (rupture -> arrivage,
+        ou -> en stock). Un magasin absent de la réponse est considéré sans stock
+        (La Grande Récré et Cultura ne listent que les magasins qui ont le produit).
         """
         ts = now()
         previous = {
@@ -131,8 +140,9 @@ class Store:
         for st in stocks:
             seen.add(st.store_id)
             old = previous.get(st.store_id)
-            changed = old is None or bool(old["in_stock"]) != st.in_stock
-            if st.in_stock and (old is None or not old["in_stock"]):
+            old_code = old["in_stock"] if old is not None else 0
+            changed = old is None or old_code != st.code
+            if st.code and _RANK[st.code] > _RANK[old_code]:
                 newly.append(st)
             self.db.execute(
                 """INSERT INTO store_stock (url, store_id, store_name, distance_km, in_stock, label, last_check, last_change)
@@ -141,14 +151,13 @@ class Store:
                      distance_km = excluded.distance_km, in_stock = excluded.in_stock, label = excluded.label,
                      last_check = excluded.last_check,
                      last_change = CASE WHEN ? THEN excluded.last_change ELSE store_stock.last_change END""",
-                (url, st.store_id, st.name, st.distance_km, int(st.in_stock), st.label, ts, ts, changed),
+                (url, st.store_id, st.name, st.distance_km, st.code, st.label, ts, ts, changed),
             )
-            if changed and not first_time and (old is not None or st.in_stock):
+            if changed and not first_time and (old is not None or st.code):
                 self.db.execute(
                     "INSERT INTO events (ts, url, retailer, name, old, new, price) VALUES (?, ?, ?, ?, ?, ?, NULL)",
                     (ts, url, retailer, f"{name or url} — {st.name}",
-                     None if old is None else ("en_stock" if old["in_stock"] else "rupture"),
-                     "en_stock" if st.in_stock else "rupture"),
+                     None if old is None else STORE_STATES[old_code], STORE_STATES[st.code]),
                 )
         for store_id, old in previous.items():
             if store_id not in seen and old["in_stock"]:
@@ -158,8 +167,8 @@ class Store:
                     (ts, ts, url, store_id),
                 )
                 self.db.execute(
-                    "INSERT INTO events (ts, url, retailer, name, old, new, price) VALUES (?, ?, ?, ?, 'en_stock', 'rupture', NULL)",
-                    (ts, url, retailer, f"{name or url} — {old['store_name']}"),
+                    "INSERT INTO events (ts, url, retailer, name, old, new, price) VALUES (?, ?, ?, ?, ?, 'rupture', NULL)",
+                    (ts, url, retailer, f"{name or url} — {old['store_name']}", STORE_STATES[old["in_stock"]]),
                 )
         self.db.execute("UPDATE products SET store_check = ? WHERE url = ?", (ts, url))
         self.db.commit()
@@ -172,6 +181,21 @@ class Store:
         return self.db.execute(
             "SELECT * FROM store_stock WHERE url = ? AND in_stock = 1 ORDER BY distance_km", (url,)
         ).fetchall()
+
+    def stores_incoming(self, url: str) -> list[sqlite3.Row]:
+        return self.db.execute(
+            "SELECT * FROM store_stock WHERE url = ? AND in_stock = 2 ORDER BY distance_km", (url,)
+        ).fetchall()
+
+    def set_restock(self, url: str, restock: str | None) -> str | None:
+        """Enregistre l'info de réassort ; retourne la nouvelle valeur si elle vient d'apparaître ou de changer."""
+        row = self.db.execute("SELECT restock FROM products WHERE url = ?", (url,)).fetchone()
+        old = row[0] if row else None
+        if old == restock:
+            return None
+        self.db.execute("UPDATE products SET restock = ? WHERE url = ?", (restock, url))
+        self.db.commit()
+        return restock
 
     def search_seen(self, url: str) -> bool:
         """Marque une page de recherche comme déjà parcourue ; retourne True si c'était déjà le cas."""

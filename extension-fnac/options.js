@@ -27,3 +27,13 @@ $("save").onclick = async () => {
 };
 $("test").onclick = async () => out(await chrome.runtime.sendMessage("test-discord"));
 $("now").onclick = async () => { out("Vérification en cours (quelques secondes par fiche)…"); out(await chrome.runtime.sendMessage("check-now")); };
+
+chrome.storage.local.get("captures").then(({ captures }) => {
+  if (!captures || !captures.length) return;
+  $("capbox").hidden = false;
+  $("cap").textContent = captures.map((c) =>
+    `[${c.at}] ${c.method} ${c.url}  (page ${c.page}, réponse ${c.status})` +
+    (c.body ? `\n  envoyé : ${c.body}` : "") + `\n  reçu : ${c.response.replace(/\s+/g, " ")}`).join("\n\n");
+});
+$("copycap").onclick = async () => { await navigator.clipboard.writeText($("cap").textContent); $("copycap").textContent = "Copié ✓"; };
+$("clearcap").onclick = async () => { await chrome.storage.local.remove("captures"); $("capbox").hidden = true; };

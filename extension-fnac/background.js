@@ -9,6 +9,8 @@ const DEFAULTS = {
   products: [
     "https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Dresseur-d-Elite/a23200296/w-4",
     "https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Amphinobi-ex/a23200310/w-4",
+    "https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Nymphali-ex/a23200275/w-4",
+    "https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Pack-2-boosters/a23200298/w-4",
   ],
   state: {},
 };

@@ -86,10 +86,17 @@ def _context(html: str) -> tuple[dict, str]:
         if not m:
             raise FetchError(f"{key} introuvable dans la page")
         ctx[key] = int(m.group(1))
-    m = re.search(r'"stock":\{"showStoreAvailability":true[^{}]*?"sku":"([^"]+)"', html)
-    if not m:
-        raise FetchError("ce produit n'a pas de disponibilité en magasin")
-    return ctx, m.group(1)
+    # Une fiche dépubliée redirige vers une page catégorie, qui contient les blocs de stock
+    # d'autres produits : on exige la fiche produit (schema.org) et on prend le bloc de stock
+    # dont le code correspond au sien.
+    product_skus = set(re.findall(r'"@type":"Product".*?"sku":"([^"]+)"', html, re.S)[:1])
+    if not product_skus:
+        raise FetchError("fiche produit non publiée (redirection)")
+    blocks = re.findall(r'"stock":\{"showStoreAvailability":true[^{}]*?"sku":"([^"]+)"(?:[^{}]*?"ean13":"([^"]*)")?', html)
+    for sku, ean in blocks:
+        if sku in product_skus or ean in product_skus:
+            return ctx, sku
+    raise FetchError("ce produit n'a pas de disponibilité en magasin")
 
 
 def proximis_store_stock(product_url: str, lat: float, lon: float, radius_km: int = 30) -> list[StoreStock]:

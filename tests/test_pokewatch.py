@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+from pokewatch.fetch import FetchError
 from pokewatch.parse import IN_STOCK, OUT_OF_STOCK, PREORDER, UNKNOWN, parse_availability
 from pokewatch.notify import should_alert
 from pokewatch.retailers import RETAILERS, retailer_for_url
@@ -101,9 +102,14 @@ class RealPagePatternsTests(unittest.TestCase):
 
     def test_proximis_context(self):
         from pokewatch.instore import _context
-        html = ('{"websiteId":100052,"sectionId":103089,"pageId":100312}'
-                '"stock":{"showStoreAvailability":true,"storeLocatorDistance":"100kilometers","sku":"896744","skuId":74210676}')
-        self.assertEqual(_context(html), ({"websiteId": 100052, "sectionId": 103089, "pageId": 100312}, "896744"))
+        ctx = '{"websiteId":100052,"sectionId":103089,"pageId":100312}'
+        other = '"stock":{"showStoreAvailability":true,"sku":"111","skuId":1,"ean13":"0000000000111"}'
+        mine = '"stock":{"showStoreAvailability":true,"storeLocatorDistance":"100kilometers","sku":"896744","skuId":74210676,"ean13":"0820650557446"}'
+        jsonld = '{"@context":"https://schema.org","@type":"Product","name":"Académie","sku":"0820650557446"}'
+        self.assertEqual(_context(ctx + jsonld + other + mine)[1], "896744")  # code via l'EAN
+        # page catégorie (fiche dépubliée) : pas de Product schema.org -> refus
+        with self.assertRaises(FetchError):
+            _context(ctx + other + mine)
 
 
 class ArrivalTests(unittest.TestCase):

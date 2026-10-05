@@ -3,7 +3,7 @@
 # Enseignes gérées : JouéClub, La Grande Récré, Cultura.
 # Les lignes qui commencent par # sont ignorées.
 
-# JouéClub — 30e anniversaire (tous en rupture en ligne et dans les 6 JouéClub du 06 le 5 octobre 2026)
+# JouéClub — 30e anniversaire (le 5 octobre 2026 : tous en rupture en ligne et dans les 6 JouéClub du 06)
 https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-coffret-4-boosters-amphinobi-ex-0196214147164.html | 30e anniv. — Coffret 4 boosters Amphinobi-ex
 https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-coffret-4-boosters-nymphali-ex-0196214147102.html | 30e anniv. — Coffret 4 boosters Nymphali-ex
 https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-coffret-collection-poster-0196214147225.html | 30e anniv. — Coffret Collection Poster
@@ -11,3 +11,13 @@ https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-coffret-dresseur-d-el
 https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-mini-tin-0196214146297.html | 30e anniv. — Mini Tin
 # Fiche dépubliée le 5 octobre (redirige vers la page Pokémon) : alerte dès qu'elle revient en vente
 https://www.joueclub.fr/pokemon/pokemon-bundle-6-boosters-0196214145221.html | Bundle 6 boosters
+
+# La Grande Récré — 30e anniversaire
+# Le 5 octobre 2026 : Mini Tin en rupture en ligne mais EN STOCK à Nice et Cagnes ; les 5 autres
+# fiches sont dépubliées (redirigent vers la catégorie) -> alerte dès qu'elles reviennent en vente.
+https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/mini-tin-pokemon-30e-anniversaire.html | 30e anniv. — Mini Tin (LGR)
+https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/-6-boosters-pokemon-30e-anniversaire.html | 30e anniv. — 6 boosters (LGR)
+https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-4-boosters-nymphali-ex-pokemon-30e-anniversaire.html | 30e anniv. — Coffret 4 boosters Nymphali-ex (LGR)
+https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-4-boosters-amphinobi-ex-pokemon-30e-anniversaire.html | 30e anniv. — Coffret 4 boosters Amphinobi-ex (LGR)
+https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/2-boosters-evoli-pokemon-30e-anniversaire.html | 30e anniv. — 2 boosters Évoli (LGR)
+https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-dresseur-d-elite-pokemon-30e-anniversaire.html | 30e anniv. — Coffret Dresseur d'Élite (LGR)

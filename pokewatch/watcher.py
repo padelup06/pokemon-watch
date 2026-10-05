@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import random
 import re
+import threading
 import time
 import tomllib
 from html import unescape
@@ -172,7 +173,7 @@ class Watcher:
             av = parse_availability(html)
         name = label or av.name
         old = self.store.record(url, retailer.key, av.status, name, av.price)
-        print(f"[{retailer.name}] {av.status:<11} ({av.source or '-'}) {name or url}")
+        print(f"{time.strftime('%H:%M:%S')} [{retailer.name}] {av.status:<11} ({av.source or '-'}) {name or url}", flush=True)
         # old == "" : premier relevé du produit, on enregistre sans alerter.
         if old and should_alert(old, av.status):
             self.notifier.send(format_alert("stock", retailer.name, name, url, av.status, av.price))
@@ -261,6 +262,43 @@ class Watcher:
             self.check(url, configured.get(url))
             self._pause()
 
+    def run_parallel(self, make_watcher=None, stop: threading.Event | None = None, cycles: int | None = None) -> None:
+        """Un fil par enseigne : chaque site est interrogé à son propre rythme (pauses
+        conservées entre deux pages d'un même site), mais les sites avancent en même
+        temps. Chaque fil a son propre Watcher (base, navigateur) : Playwright et
+        sqlite ne se partagent pas entre fils."""
+        make_watcher = make_watcher or (lambda: Watcher(self.cfg))
+        stop = stop or threading.Event()
+        groups: dict[str, list[dict]] = {}
+        for p in self.cfg["watchlist"]:
+            groups.setdefault(retailer_for_url(p["url"]).key, []).append(p)
+
+        def worker(products: list[dict]) -> None:
+            w = make_watcher()
+            done = 0
+            try:
+                while not stop.is_set() and (cycles is None or done < cycles):
+                    for p in products:
+                        if stop.is_set():
+                            break
+                        try:
+                            w.check(p["url"], p.get("label"))
+                        except Exception as e:  # un site en panne ne doit pas arrêter les autres
+                            print(f"⚠ {p['url']} : {e}", flush=True)
+                        w._pause()
+                    done += 1
+                    if cycles is None or done < cycles:
+                        stop.wait(self.watch_interval + random.uniform(0, 5))
+            finally:
+                w.fetcher.close()
+
+        threads = [threading.Thread(target=worker, args=(prods,), name=key, daemon=True) for key, prods in groups.items()]
+        for t in threads:
+            t.start()
+        print(f"— {len(threads)} enseignes surveillées en parallèle : {', '.join(groups)} —", flush=True)
+        for t in threads:
+            t.join()
+
     def run_forever(self) -> None:
         """Passage complet toutes les `interval_minutes` ; entre deux, la liste de
         surveillance est revérifiée toutes les `watchlist_interval_seconds`."""
@@ -268,6 +306,17 @@ class Watcher:
         interval = float(s.get("interval_minutes", 10)) * 60
         jitter = float(s.get("jitter_seconds", 60))
         fast = self.watch_interval > 0 and bool(self.cfg["watchlist"]) and not self.exclude_watchlist
+        if fast and s.get("parallel", False):
+            # Vos produits : en continu, une enseigne par fil. Ce fil-ci ne garde que la
+            # recherche de nouveautés (pages [[searches]]), s'il y en a.
+            threading.Thread(target=self.run_parallel, daemon=True).start()
+            try:
+                while True:
+                    if self.cfg["searches"]:
+                        self.discover()
+                    time.sleep(max(60.0, interval + random.uniform(-jitter, jitter)))
+            finally:
+                self.fetcher.close()
         next_full = 0.0
         try:
             while True:

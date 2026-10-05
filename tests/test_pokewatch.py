@@ -187,6 +187,36 @@ class TrackDiscoveredTests(unittest.TestCase):
         self.assertEqual(visited, [search, mine])  # le produit trouvé par la recherche n'est pas relevé
 
 
+class ParallelTests(unittest.TestCase):
+    def test_sites_checked_concurrently(self):
+        import threading, time as _t
+        db = os.path.join(tempfile.mkdtemp(), "t.db")
+        urls = ["https://www.joueclub.fr/pokemon/a-0196214147164.html", "https://www.joueclub.fr/pokemon/b-0196214147102.html",
+                "https://www.lagranderecre.fr/x/c.html", "https://www.lagranderecre.fr/x/d.html"]
+        cfg = {"settings": {"database": db, "min_delay_seconds": 0.2, "max_delay_seconds": 0.2, "watchlist_interval_seconds": 0},
+               "alerts": {}, "watchlist": [{"url": u, "label": None} for u in urls]}
+        log, lock = [], threading.Lock()
+
+        def make():
+            w = Watcher(cfg)
+            def get(url, needs_browser=False):
+                with lock:
+                    log.append((threading.current_thread().name, url))
+                return jsonld_page("OutOfStock")
+            w.fetcher.get = get
+            w.check_stores = lambda *a: None
+            return w
+
+        start = _t.time()
+        with mock.patch("builtins.print"):
+            Watcher(cfg).run_parallel(make_watcher=make, cycles=1)
+        elapsed = _t.time() - start
+        self.assertEqual(sorted(u for _, u in log), sorted(urls))
+        self.assertEqual({n for n, _ in log}, {"joueclub", "lagranderecre"})
+        self.assertLess(elapsed, 0.75)  # en série : 4 pauses de 0,2 s ; en parallèle : 2
+        self.assertEqual(len(Store(db).products()), 4)
+
+
 class EanSearchTests(unittest.TestCase):
     def test_cloudflare_page_is_not_no_result(self):
         db = os.path.join(tempfile.mkdtemp(), "t.db")

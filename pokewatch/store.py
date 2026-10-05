@@ -58,7 +58,8 @@ def now() -> str:
 
 class Store:
     def __init__(self, path: str) -> None:
-        self.db = sqlite3.connect(path)
+        # timeout : en mode parallèle, plusieurs fils écrivent dans la même base.
+        self.db = sqlite3.connect(path, timeout=30)
         self.db.row_factory = sqlite3.Row
         self.db.executescript(SCHEMA)
         # Colonnes ajoutées après coup : on complète les bases existantes.

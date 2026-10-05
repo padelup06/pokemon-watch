@@ -9,7 +9,8 @@
 database = "pokewatch-pc.db"
 interval_minutes = 10            # passage complet
 watchlist_file = "produits.txt"   # vos produits prioritaires…
-watchlist_interval_seconds = 60   # … revérifiés chaque minute entre deux passages complets
+watchlist_interval_seconds = 15   # … revérifiés en continu (repos de 15 s entre deux tours)
+parallel = true                   # une enseigne par fil : chaque produit revérifié toutes les ~45-65 s
 jitter_seconds = 90
 min_delay_seconds = 2
 max_delay_seconds = 5

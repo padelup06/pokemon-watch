@@ -50,7 +50,10 @@ def should_alert(old: str, new: str) -> bool:
 
 def _post_json(url: str, payload: dict) -> None:
     req = urllib.request.Request(
-        url, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"}
+        url,
+        data=json.dumps(payload).encode(),
+        # Discord (Cloudflare) refuse les requêtes avec l'user-agent par défaut de Python (erreur 1010).
+        headers={"Content-Type": "application/json", "User-Agent": "pokemon-watch (+https://github.com/padelup06/pokemon-watch)"},
     )
     urllib.request.urlopen(req, timeout=15).read()
 

@@ -1,6 +1,7 @@
 # Configuration utilisée par la surveillance automatique sur GitHub Actions.
-# Le code postal et le webhook Discord viennent des réglages du dépôt GitHub
-# (variable POKEWATCH_CODE_POSTAL, secret POKEWATCH_DISCORD_WEBHOOK), pas de ce fichier.
+# Le webhook Discord vient du secret GitHub POKEWATCH_DISCORD_WEBHOOK, pas de ce fichier.
+# Les variables du dépôt POKEWATCH_CODE_POSTAL / POKEWATCH_RAYON_KM, si elles existent,
+# remplacent la zone ci-dessous.
 
 [settings]
 database = "pokewatch.db"
@@ -9,7 +10,10 @@ max_delay_seconds = 2
 browser = "never"            # pas de navigateur sur GitHub : Fnac et Cultura y sont bloquées de toute façon
 keywords = ["pokemon"]
 max_products_per_search = 40
-rayon_km = 30
+# Alpes-Maritimes : centré sur Nice, couvre de Menton à Cannes / Grasse / Mandelieu
+# (La Grande Récré Nice, Cagnes, Cannes La Bocca ; JouéClub Nice x2, Monaco, Antibes, Grasse, Mandelieu)
+code_postal = "06000"
+rayon_km = 45
 
 [alerts]
 

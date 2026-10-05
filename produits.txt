@@ -3,7 +3,11 @@
 # Enseignes gérées : JouéClub, La Grande Récré, Cultura.
 # Les lignes qui commencent par # sont ignorées.
 
-# Exemples (le 5 octobre 2026 : en ligne chez JouéClub, en rupture chez La Grande Récré,
-# absents des magasins du 06) — remplacez-les par vos produits :
-https://www.joueclub.fr/pokemon/pokebox-mega-puissances-mega-dracolosse-0196214141735.html | Pokébox Méga Dracolosse (JouéClub)
-https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/pokebox-mega-puissances-mega-dracolosse-ex-pokemon.html | Pokébox Méga Dracolosse (La Grande Récré)
+# JouéClub — 30e anniversaire (tous en rupture en ligne et dans les 6 JouéClub du 06 le 5 octobre 2026)
+https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-coffret-4-boosters-amphinobi-ex-0196214147164.html | 30e anniv. — Coffret 4 boosters Amphinobi-ex
+https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-coffret-4-boosters-nymphali-ex-0196214147102.html | 30e anniv. — Coffret 4 boosters Nymphali-ex
+https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-coffret-collection-poster-0196214147225.html | 30e anniv. — Coffret Collection Poster
+https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-coffret-dresseur-d-elite-0196214144835.html | 30e anniv. — Coffret Dresseur d'Élite
+https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-mini-tin-0196214146297.html | 30e anniv. — Mini Tin
+# Fiche dépubliée le 5 octobre (redirige vers la page Pokémon) : alerte dès qu'elle revient en vente
+https://www.joueclub.fr/pokemon/pokemon-bundle-6-boosters-0196214145221.html | Bundle 6 boosters

@@ -1,0 +1,46 @@
+# Copiez ce fichier en config.toml puis adaptez-le.
+
+[settings]
+database = "pokewatch.db"
+interval_minutes = 10        # fréquence des passages (restez raisonnable : 5 min minimum)
+jitter_seconds = 60          # aléa pour ne pas passer à heure fixe
+min_delay_seconds = 2        # pause entre deux pages
+max_delay_seconds = 6
+browser = "auto"             # never | auto | always  (auto = navigateur headless si l'enseigne l'exige ou si HTTP est bloqué)
+keywords = ["pokemon"]       # filtre appliqué aux liens trouvés sur les pages de recherche
+max_products_per_search = 40
+
+[alerts]
+# Laissez vide ce que vous n'utilisez pas. Ces valeurs peuvent aussi venir des variables
+# d'environnement POKEWATCH_DISCORD_WEBHOOK, POKEWATCH_TELEGRAM_TOKEN, POKEWATCH_TELEGRAM_CHAT_ID.
+discord_webhook = ""
+telegram_bot_token = ""
+telegram_chat_id = ""
+
+# ---------------------------------------------------------------------------
+# Pages de recherche / catégories : permettent de détecter les NOUVEAUX produits
+# (nouvelle extension, nouveau coffret...). Les produits trouvés sont ensuite
+# suivis automatiquement. Vérifiez chaque URL dans votre navigateur et adaptez :
+#   python -m pokewatch test "<url>"   affiche le nombre de liens produits détectés.
+# ---------------------------------------------------------------------------
+
+[[searches]]
+url = "https://www.cultura.com/search/results?search_query=pokemon%20carte"
+
+[[searches]]
+url = "https://www.joueclub.fr/recherche?q=pokemon"
+
+[[searches]]
+url = "https://www.lagranderecre.fr/recherche?q=pokemon"
+
+[[searches]]
+url = "https://www.auchan.fr/recherche?text=pokemon+carte"
+
+# ---------------------------------------------------------------------------
+# Produits précis à surveiller (fiches produit). Collez l'URL depuis le site.
+# Le label est optionnel (sinon le nom est lu sur la page).
+# ---------------------------------------------------------------------------
+
+# [[products]]
+# url = "https://www.cultura.com/p-....html"
+# label = "Display Pokémon — nouvelle extension"

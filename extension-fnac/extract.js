@@ -84,7 +84,10 @@ async function pokewatchExtract() {
           const col = li.querySelector('[class*="liCol_2"]');
           if (!name || !col) continue;
           const text = col.textContent.replace(/\s+/g, " ").trim();
-          list.push({ name: name.trim(), text, status: pokewatchClassify(text, "store") });
+          // La Fnac écrit « En rayon » (attribut data-available, ColorStatus_2) ou « Indisponible en rayon ».
+          let status = pokewatchClassify(text, "store");
+          if (status !== "rupture" && (li.hasAttribute("data-available") || /en rayon/i.test(text))) status = "en_stock";
+          list.push({ name: name.trim(), text, status });
         }
         if (list.length) result.stores = list;
       }

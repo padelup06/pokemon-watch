@@ -132,10 +132,17 @@ class Watcher:
             first_run = not self.store.search_seen(url)
             new = [u for u in links if self.store.add_product(u, retailer.key, "découverte")]
             print(f"[{retailer.name}] recherche : {len(links)} produits, {len(new)} nouveaux")
-            if first_run:
-                continue  # premier passage : on constitue la base sans spammer
+            # Premier passage : on constitue la base sans spammer. Certaines pages (JouéClub)
+            # affichent une sélection différente à chaque visite : alert_new = false pour elles.
+            if first_run or not search.get("alert_new", True):
+                continue
             for u in new:
-                self.notifier.send(format_alert("nouveau", retailer.name, None, u, "inconnu", None))
+                self.check(u)  # nom, prix et disponibilité pour une alerte utile
+                row = self.store.get(u)
+                self.notifier.send(
+                    format_alert("nouveau", retailer.name, row["name"], u, row["status"] or "inconnu", row["price"])
+                )
+                self._pause()
 
     def check(self, url: str, label: str | None = None) -> None:
         retailer = retailer_for_url(url)

@@ -16,13 +16,13 @@ STATUS_LABEL = {
 
 
 def format_alert(kind: str, retailer: str, name: str | None, url: str, status: str, price: float | None) -> str:
-    title = name or url
     price_txt = f" — {price:.2f} €" if price is not None else ""
     if kind == "nouveau":
-        head = f"🆕 Nouveau produit chez {retailer}"
+        head = f"🆕 Nouveau produit chez {retailer} ({STATUS_LABEL.get(status, status)})"
     else:
         head = f"{STATUS_LABEL.get(status, status)} chez {retailer}"
-    return f"{head}\n{title}{price_txt}\n{url}"
+    title = f"\n{name}{price_txt}" if name else ""
+    return f"{head}{title}\n{url}"
 
 
 def format_store_alert(retailer: str, name: str | None, url: str, stores) -> str:

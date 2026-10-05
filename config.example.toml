@@ -34,6 +34,7 @@ telegram_chat_id = ""
 [[searches]]
 url = "https://www.joueclub.fr/nos-heros/pokemon.html"
 keywords = ["joueclub.fr/pokemon/"]
+alert_new = false   # sélection différente à chaque visite : pas d'alerte « nouveau »
 
 # La Grande Récré : rayon cartes à collectionner
 [[searches]]

@@ -1,0 +1,21 @@
+# Configuration utilisée par la surveillance automatique sur GitHub Actions.
+# Le code postal et le webhook Discord viennent des réglages du dépôt GitHub
+# (variable POKEWATCH_CODE_POSTAL, secret POKEWATCH_DISCORD_WEBHOOK), pas de ce fichier.
+
+[settings]
+database = "pokewatch.db"
+min_delay_seconds = 1
+max_delay_seconds = 2
+browser = "never"            # pas de navigateur sur GitHub : Fnac et Cultura y sont bloquées de toute façon
+keywords = ["pokemon"]
+max_products_per_search = 40
+rayon_km = 30
+
+[alerts]
+
+[[searches]]
+url = "https://www.joueclub.fr/nos-heros/pokemon.html"
+keywords = ["joueclub.fr/pokemon/"]
+
+[[searches]]
+url = "https://www.lagranderecre.fr/cartes-a-collectionner/"

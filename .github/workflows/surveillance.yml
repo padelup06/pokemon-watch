@@ -1,0 +1,46 @@
+name: Surveillance stocks Pokémon
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"   # GitHub lance souvent avec quelques minutes de retard
+  workflow_dispatch:          # bouton « Run workflow » pour lancer à la main
+
+concurrency:
+  group: surveillance
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # L'historique (SQLite) est conservé d'un passage à l'autre via le cache GitHub :
+      # c'est lui qui permet de savoir ce qui vient d'arriver en magasin.
+      - name: Récupérer l'historique
+        uses: actions/cache/restore@v4
+        with:
+          path: pokewatch.db
+          key: pokewatch-db-${{ github.run_id }}
+          restore-keys: pokewatch-db-
+
+      - name: Relever les stocks
+        env:
+          POKEWATCH_CODE_POSTAL: ${{ vars.POKEWATCH_CODE_POSTAL }}
+          POKEWATCH_RAYON_KM: ${{ vars.POKEWATCH_RAYON_KM }}
+          POKEWATCH_DISCORD_WEBHOOK: ${{ secrets.POKEWATCH_DISCORD_WEBHOOK }}
+          POKEWATCH_TELEGRAM_TOKEN: ${{ secrets.POKEWATCH_TELEGRAM_TOKEN }}
+          POKEWATCH_TELEGRAM_CHAT_ID: ${{ secrets.POKEWATCH_TELEGRAM_CHAT_ID }}
+        run: python -m pokewatch -c config.ci.toml check
+
+      - name: Sauvegarder l'historique
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: pokewatch.db
+          key: pokewatch-db-${{ github.run_id }}

@@ -32,6 +32,11 @@ def load_config(path: str) -> dict:
     for env, key in ENV_OVERRIDES.items():
         if os.environ.get(env):
             alerts[key] = os.environ[env]
+    settings = cfg["settings"]
+    if os.environ.get("POKEWATCH_CODE_POSTAL"):
+        settings["code_postal"] = os.environ["POKEWATCH_CODE_POSTAL"]
+    if os.environ.get("POKEWATCH_RAYON_KM"):
+        settings["rayon_km"] = int(os.environ["POKEWATCH_RAYON_KM"])
     cfg.setdefault("products", [])
     cfg.setdefault("searches", [])
     return cfg

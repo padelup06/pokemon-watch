@@ -5,17 +5,19 @@
 //   pdp-buyBox-storeAvailability-status  -> « Indisponible en magasin », « Retrait 1h »…
 // Les offres de vendeurs tiers (marketplace) et les « Ajouter au panier » des produits
 // recommandés sont ignorés : seul le bloc d'achat Fnac compte.
-function pokewatchClassify(text, kind) {
-  const t = (text || "").toLowerCase();
-  if (!t) return "inconnu";
-  if (/épuisé|epuise|indisponible|rupture|plus disponible|non disponible/.test(t)) return "rupture";
-  if (/précommande|precommande|pré-commande|disponible le|à paraître|a paraitre/.test(t)) return "precommande";
-  if (kind === "store" && /sous \d+|jours|à partir du|a partir du|commande/.test(t)) return "arrivage";
-  if (/en stock|disponible|retrait|expédié|expedie|livré|livre/.test(t)) return "en_stock";
-  return "inconnu";
-}
-
 function pokewatchExtract() {
+  // Tout doit être DANS cette fonction : Chrome n'injecte dans la page que son code,
+  // pas les autres fonctions du fichier.
+  const pokewatchClassify = function (text, kind) {
+    const t = (text || "").toLowerCase();
+    if (!t) return "inconnu";
+    if (/épuisé|epuise|indisponible|rupture|plus disponible|non disponible/.test(t)) return "rupture";
+    if (/précommande|precommande|pré-commande|disponible le|à paraître|a paraitre/.test(t)) return "precommande";
+    if (kind === "store" && /sous \d+|jours|à partir du|a partir du|commande/.test(t)) return "arrivage";
+    if (/en stock|disponible|retrait|expédié|expedie|livré|livre/.test(t)) return "en_stock";
+    return "inconnu";
+  };
+
   const html = document.documentElement.outerHTML;
   const bodyText = document.body ? document.body.innerText : "";
   if (/captcha-delivery|geo\.captcha|Accès temporairement restreint/i.test(html + bodyText)) {
@@ -37,11 +39,8 @@ function pokewatchExtract() {
   };
   result.status = pokewatchClassify(result.web, "web");
   result.storeStatus = result.storeText ? pokewatchClassify(result.storeText, "store") : null;
-  const priceEl = document.querySelector('#buy_box [data-automation-id*="price" i], #buy_box [class*="price" i]');
-  if (priceEl) {
-    const m = priceEl.textContent.replace(/\s/g, "").match(/(\d+)[,.€](\d{2})?/);
-    if (m) result.price = parseFloat(`${m[1]}.${m[2] || "00"}`);
-  }
+  // Pas de lecture de prix : dans le bloc d'achat, le prix affiché peut être celui d'un
+  // vendeur tiers (ex. 296,10 € chez SuperPromos pour un coffret à 64,99 €).
   if (!result.web) {
     // Page sans bloc d'achat reconnu (mise en page changée ?) : on se rabat sur schema.org.
     result.source = null;

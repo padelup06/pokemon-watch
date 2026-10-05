@@ -92,7 +92,7 @@ const LABEL = { en_stock: "✅ EN STOCK", precommande: "🕒 PRÉCOMMANDE", rupt
 let running = false;
 
 async function checkAll() {
-  if (running) return "déjà en cours";
+  if (running) return "Une vérification est déjà en cours : rouvrez cette fenêtre dans une minute pour voir le résultat.";
   running = true;
   try {
     const { products, state } = await settings();
@@ -114,7 +114,11 @@ async function checkAll() {
         report.push(`${url} : vérification demandée par la Fnac`);
         continue;
       }
-      if (r.status === "erreur") { report.push(`${url} : ${r.error}`); continue; }
+      if (r.status === "erreur") {
+        report.push(`${url} : ${r.error}`);
+        state[url] = Object.assign({}, prev, { error: r.error, at: new Date().toISOString() });
+        continue;
+      }
       const name = r.name || url;
       const known = Boolean(prev.status); // premier relevé : on enregistre sans alerter
       if (known && !BUYABLE.includes(prev.status) && BUYABLE.includes(r.status)) {
@@ -133,7 +137,7 @@ async function checkAll() {
       }
       state[url] = {
         status: r.status, storeStatus: r.storeStatus, storeName: r.storeName, name,
-        at: new Date().toISOString(),
+        web: r.web, storeText: r.storeText, at: new Date().toISOString(),
       };
       report.push(`${name}\n   en ligne : ${r.web || LABEL[r.status]}\n   ${r.storeName || "magasin"} : ${r.storeText || "—"}`);
       await sleep(3000 + Math.random() * 4000);

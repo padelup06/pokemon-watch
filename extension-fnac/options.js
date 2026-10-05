@@ -7,8 +7,11 @@ chrome.storage.local.get(["webhook", "products", "intervalMinutes", "state"]).th
   const defaults = (await chrome.runtime.sendMessage("defaults")) || [];
   $("products").value = (s.products || defaults).join("\n");
   $("interval").value = s.intervalMinutes || 3;
-  const st = Object.entries(s.state || {}).map(([u, v]) => `${v.name || u} : ${v.status} (${v.at || ""})`);
-  if (st.length) out(st);
+  const when = (iso) => (iso ? new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "?");
+  const st = Object.entries(s.state || {}).map(([u, v]) =>
+    `${v.name || u}  (relevé à ${when(v.at)})\n   en ligne : ${v.web || v.status || "?"}\n   ${v.storeName || "magasin"} : ${v.storeText || "—"}` +
+    (v.error ? `\n   ⚠ dernière lecture : ${v.error}` : ""));
+  out(st.length ? ["Derniers relevés :", ...st] : "Pas encore de relevé : cliquez sur « Vérifier maintenant ».");
 });
 
 $("save").onclick = async () => {

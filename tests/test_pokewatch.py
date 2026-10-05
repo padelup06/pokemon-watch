@@ -187,6 +187,36 @@ class TrackDiscoveredTests(unittest.TestCase):
         self.assertEqual(visited, [search, mine])  # le produit trouvé par la recherche n'est pas relevé
 
 
+class NewListingTests(unittest.TestCase):
+    def test_sitemap_new_pokemon_listing(self):
+        db = os.path.join(tempfile.mkdtemp(), "t.db")
+        sm = "https://www.joueclub.fr/Assets/Rbs/Seo/100185/fr_FR/Rbs_Catalog_Product.1.xml"
+        old = "https://www.joueclub.fr/pokemon/pokemon-booster-0196214142763.html"
+        plush = "https://www.joueclub.fr/peluche/pokemon-peluche-0191726957294.html"
+        new = "https://www.joueclub.fr/pokemon/pokemon-coffret-nouveau-0196214150000.html"
+        loc = lambda *u: "".join(f"<url><loc>{x}</loc></url>" for x in u)
+        pages = {sm: loc(old), new: jsonld_page("OutOfStock")}
+        cfg = {"settings": {"database": db, "min_delay_seconds": 0, "max_delay_seconds": 0, "track_discovered": False},
+               "alerts": {}, "watchlist": [],
+               "searches": [{"url": sm, "require": ["/pokemon/"], "max": 0, "every_minutes": 360}]}
+        w = Watcher(cfg)
+        visited = []
+        w.fetcher.get = lambda url, needs_browser=False: visited.append(url) or pages[url]
+        w.check_stores = lambda *a, **k: None
+        sent = []
+        w.notifier.send = sent.append
+        with mock.patch("builtins.print"):
+            w.run_once()  # premier passage : silencieux
+            pages[sm] = loc(old, plush, new)
+            w.run_once()  # moins de 6 h après : plan du site pas relu
+            self.assertEqual((sent, visited), ([], [sm]))
+            w.store.db.execute("UPDATE searches SET last_check = '2000-01-01T00:00:00+00:00'")
+            w.run_once()
+        self.assertEqual(len(sent), 1)  # la peluche (hors rubrique /pokemon/) est ignorée
+        self.assertIn("Nouveau produit", sent[0])
+        self.assertIn(new, sent[0])
+
+
 class ParallelTests(unittest.TestCase):
     def test_sites_checked_concurrently(self):
         import threading, time as _t

@@ -67,6 +67,8 @@ class Store:
         for col in ("restock", "found_url"):
             if col not in cols:
                 self.db.execute(f"ALTER TABLE products ADD COLUMN {col} TEXT")
+        if "last_check" not in {r[1] for r in self.db.execute("PRAGMA table_info(searches)")}:
+            self.db.execute("ALTER TABLE searches ADD COLUMN last_check TEXT")
         self.db.commit()
 
     def get(self, url: str) -> sqlite3.Row | None:
@@ -217,6 +219,17 @@ class Store:
         cur = self.db.execute("INSERT OR IGNORE INTO searches (url, first_run) VALUES (?, ?)", (url, now()))
         self.db.commit()
         return cur.rowcount == 0
+
+    def search_due(self, url: str, every_minutes: float) -> bool:
+        """True si la page n'a pas été parcourue depuis every_minutes (ou jamais) ; note alors l'heure du passage."""
+        row = self.db.execute("SELECT last_check FROM searches WHERE url = ?", (url,)).fetchone()
+        if row and row[0] and every_minutes:
+            age = datetime.now(timezone.utc) - datetime.fromisoformat(row[0])
+            if age.total_seconds() < every_minutes * 60:
+                return False
+        self.db.execute("UPDATE searches SET last_check = ? WHERE url = ?", (now(), url))
+        self.db.commit()
+        return True
 
     def products(self) -> list[sqlite3.Row]:
         return self.db.execute(

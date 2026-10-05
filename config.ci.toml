@@ -19,6 +19,50 @@ rayon_km = 45
 
 [alerts]
 
-# Rayon cartes de La Grande Récré : alerte « nouveau produit » uniquement (non suivis ensuite)
+# ---- Nouvelles fiches Pokémon : alerte « 🆕 Nouveau produit » (produits ensuite non suivis) ----
+# Premier passage de chaque page : silencieux (on note l'existant). Ensuite, toute fiche
+# Pokémon jamais vue déclenche une alerte.
+
+# La Grande Récré : rayon cartes à collectionner et page Nouveautés
 [[searches]]
 url = "https://www.lagranderecre.fr/cartes-a-collectionner/"
+require = ["pokemon"]
+
+[[searches]]
+url = "https://www.lagranderecre.fr/nouveautes.html"
+require = ["pokemon", "cartes-a-collectionner"]
+
+# JouéClub : pages Nouveautés et coffrets Pokémon (rubrique /pokemon/ = cartes)
+[[searches]]
+url = "https://www.joueclub.fr/contenu/nouveautes.html"
+require = ["/pokemon/"]
+
+[[searches]]
+url = "https://www.joueclub.fr/contenu/coffret-pokemon.html"
+require = ["/pokemon/"]
+
+# JouéClub : plan du site (toutes les fiches, y compris celles pas encore en vente).
+# Fichiers lourds (~9 Mo) mis à jour environ une fois par semaine : relus toutes les 6 h.
+[[searches]]
+url = "https://www.joueclub.fr/Assets/Rbs/Seo/100185/fr_FR/Rbs_Catalog_Product.1.xml"
+require = ["/pokemon/"]
+max = 0
+every_minutes = 360
+
+[[searches]]
+url = "https://www.joueclub.fr/Assets/Rbs/Seo/100185/fr_FR/Rbs_Catalog_Product.2.xml"
+require = ["/pokemon/"]
+max = 0
+every_minutes = 360
+
+[[searches]]
+url = "https://www.joueclub.fr/Assets/Rbs/Seo/100185/fr_FR/Rbs_Catalog_Product.3.xml"
+require = ["/pokemon/"]
+max = 0
+every_minutes = 360
+
+[[searches]]
+url = "https://www.joueclub.fr/Assets/Rbs/Seo/100185/fr_FR/Rbs_Catalog_Product.4.xml"
+require = ["/pokemon/"]
+max = 0
+every_minutes = 360

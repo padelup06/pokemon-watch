@@ -140,6 +140,9 @@ class Watcher:
         for search in self.cfg["searches"]:
             url = search["url"]
             retailer = retailer_for_url(url)
+            # Pages lourdes ou rarement mises à jour (plan du site) : every_minutes espace les passages.
+            if not self.store.search_due(url, float(search.get("every_minutes", 0))):
+                continue
             try:
                 html = self.fetcher.get(url, retailer.needs_browser)
             except FetchError as e:
@@ -148,8 +151,12 @@ class Watcher:
             finally:
                 self._pause()
             links = [u for u in extract_product_links(html, url) if matches_keywords(u, search.get("keywords", self.keywords))]
-            links = links[: self.max_discovered]
+            # require : mots qui doivent TOUS figurer dans l'adresse (ex. "/pokemon/" chez JouéClub).
+            links = [u for u in links if all(matches_keywords(u, [w]) for w in search.get("require", []))]
+            limit = int(search.get("max", self.max_discovered))
+            links = links[:limit] if limit else links
             first_run = not self.store.search_seen(url)
+            self.store.search_due(url, 0)
             new = [u for u in links if self.store.add_product(u, retailer.key, "découverte")]
             print(f"[{retailer.name}] recherche : {len(links)} produits, {len(new)} nouveaux")
             # Premier passage : on constitue la base sans spammer. Certaines pages (JouéClub)

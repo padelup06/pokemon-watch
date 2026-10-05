@@ -63,9 +63,10 @@ class Store:
         self.db.executescript(SCHEMA)
         # Colonnes ajoutées après coup : on complète les bases existantes.
         cols = {r[1] for r in self.db.execute("PRAGMA table_info(products)")}
-        if "restock" not in cols:
-            self.db.execute("ALTER TABLE products ADD COLUMN restock TEXT")
-            self.db.commit()
+        for col in ("restock", "found_url"):
+            if col not in cols:
+                self.db.execute(f"ALTER TABLE products ADD COLUMN {col} TEXT")
+        self.db.commit()
 
     def get(self, url: str) -> sqlite3.Row | None:
         return self.db.execute("SELECT * FROM products WHERE url = ?", (url,)).fetchone()
@@ -186,6 +187,19 @@ class Store:
         return self.db.execute(
             "SELECT * FROM store_stock WHERE url = ? AND in_stock = 2 ORDER BY distance_km", (url,)
         ).fetchall()
+
+    def set_found(self, url: str, found_url: str | None) -> bool:
+        """Pour une recherche par code-barres : mémorise la fiche trouvée ; True si elle vient d'apparaître."""
+        row = self.db.execute("SELECT found_url FROM products WHERE url = ?", (url,)).fetchone()
+        old = row[0] if row else None
+        if old == found_url:
+            return False
+        self.db.execute("UPDATE products SET found_url = ? WHERE url = ?", (found_url, url))
+        self.db.commit()
+        return found_url is not None and old is None
+
+    def found_urls(self) -> list[str]:
+        return [r[0] for r in self.db.execute("SELECT found_url FROM products WHERE found_url IS NOT NULL")]
 
     def set_restock(self, url: str, restock: str | None) -> str | None:
         """Enregistre l'info de réassort ; retourne la nouvelle valeur si elle vient d'apparaître ou de changer."""

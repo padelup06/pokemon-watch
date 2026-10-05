@@ -86,6 +86,12 @@ def extract_product_links(html: str, base_url: str) -> list[str]:
     return list(seen)
 
 
+def ean_search(url: str) -> str | None:
+    """Code-barres d'une URL de recherche par EAN (ex. cultura.com/search/results?search_query=0196…)."""
+    m = re.search(r"/search/[^?]*\?(?:[^#]*&)?search_query=(\d{8,14})(?:&|$)", url)
+    return m.group(1) if m else None
+
+
 def matches_keywords(url: str, keywords: list[str]) -> bool:
     if not keywords:
         return True
@@ -146,7 +152,11 @@ class Watcher:
 
     def check(self, url: str, label: str | None = None) -> None:
         retailer = retailer_for_url(url)
+        if retailer.needs_browser and self.fetcher.browser_mode == "never":
+            return  # ex. Cultura sur GitHub : bloqué sans navigateur, laissé au PC
         self.store.add_product(url, retailer.key, label)
+        if ean_search(url):
+            return self.check_ean_search(url, label)
         try:
             html = self.fetcher.get(url, retailer.needs_browser)
         except FetchError as e:
@@ -169,6 +179,41 @@ class Watcher:
                 self.notifier.send(format_restock_alert(retailer.name, name, url, restock))
         if self.location and retailer.key in STORE_RETAILERS and av.status != UNKNOWN:
             self.check_stores(url, retailer, name)
+
+    def check_ean_search(self, url: str, label: str | None) -> None:
+        """Recherche par code-barres (produit sans fiche en ligne) : on guette l'apparition
+        d'une fiche, puis on la suit comme les autres produits."""
+        ean = ean_search(url)
+        retailer = retailer_for_url(url)
+        row = self.store.get(url)
+        if row is not None and row["found_url"]:
+            return self.check(row["found_url"], label)  # fiche déjà trouvée : on suit directement la fiche
+        try:
+            html = self.fetcher.get(url, retailer.needs_browser)
+        except FetchError as e:
+            self.store.record_error(url, retailer.key, str(e))
+            print(f"[{retailer.name}] ⚠ recherche {ean} : {e}")
+            return
+        found = None
+        # La page de résultats peut proposer d'autres produits (suggestions) : on ne retient
+        # qu'une fiche dont la page contient bien le code-barres recherché.
+        for link in extract_product_links(html, url)[:4]:
+            try:
+                if ean in self.fetcher.get(link, retailer.needs_browser):
+                    found = link
+                    break
+            except FetchError:
+                continue
+        first = self.store.get(url)["last_check"] is None
+        self.store.record(url, retailer.key, "en_stock" if found else "inconnu", label, None)
+        appeared = self.store.set_found(url, found)
+        print(f"[{retailer.name}] recherche {ean} : {'fiche trouvée ' + found if found else 'aucune fiche'}")
+        if found:
+            if appeared and not first:
+                self.notifier.send(
+                    f"🆕 FICHE EN LIGNE chez {retailer.name} : {label or ean}\n{found}"
+                )
+            self.check(found, label)
 
     def check_stores(self, url: str, retailer, name: str | None) -> None:
         try:

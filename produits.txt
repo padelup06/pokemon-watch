@@ -1,6 +1,7 @@
 # Produits à surveiller en priorité (vérifiés chaque minute sur le PC, toutes les 10 min sur GitHub).
 # Une adresse de fiche produit par ligne. Nom facultatif après « | ».
-# Enseignes gérées : JouéClub, La Grande Récré, Cultura.
+# Enseignes gérées : JouéClub, La Grande Récré, Cultura (Cultura : sur le PC uniquement).
+# Produit sans fiche Cultura : mettez https://www.cultura.com/search/results?search_query=<code-barres>
 # Les lignes qui commencent par # sont ignorées.
 
 # JouéClub — 30e anniversaire (le 5 octobre 2026 : tous en rupture en ligne et dans les 6 JouéClub du 06)
@@ -23,3 +24,7 @@ https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-4-bo
 https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-collection-poster-pokemon-30e-anniversaire.html | 30e anniv. — Coffret Collection Poster (LGR)
 https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/2-boosters-evoli-pokemon-30e-anniversaire.html | 30e anniv. — 2 boosters Évoli (LGR)
 https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-dresseur-d-elite-pokemon-30e-anniversaire.html | 30e anniv. — Coffret Dresseur d'Élite (LGR)
+
+# Cultura — produits sans fiche en ligne : recherche par code-barres (EAN).
+# Alerte « fiche en ligne » dès que Cultura publie la fiche, puis suivi du stock (PC uniquement).
+https://www.cultura.com/search/results?search_query=0196214147225 | 30e anniv. — Coffret Collection Poster (Cultura)

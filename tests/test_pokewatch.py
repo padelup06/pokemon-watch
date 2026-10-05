@@ -170,6 +170,37 @@ class ArrivalTests(unittest.TestCase):
         self.assertEqual(s.record_store_stock(u, "joueclub", "X", [arr]), [])  # en stock -> arrivage : pas d'alerte
 
 
+class EanSearchTests(unittest.TestCase):
+    def test_product_appears(self):
+        db = os.path.join(tempfile.mkdtemp(), "t.db")
+        search = "https://www.cultura.com/search/results?search_query=0196214147225"
+        prod = "https://www.cultura.com/p-coffret-collection-poster-pokemon-30-ans-13400000.html"
+        sugg = "https://www.cultura.com/p-autre-produit-1.html"
+        pages = {
+            search: f'<a href="{sugg}">suggestion</a>',
+            sugg: jsonld_page("InStock"),  # suggestion sans le code-barres : ignorée
+            prod: jsonld_page("OutOfStock") + "0196214147225",
+        }
+        cfg = {"settings": {"database": db, "min_delay_seconds": 0, "max_delay_seconds": 0}, "alerts": {}}
+        w = Watcher(cfg)
+        w.fetcher.get = lambda url, needs_browser=False: pages[url]
+        sent = []
+        w.notifier.send = sent.append
+        with mock.patch("builtins.print"):
+            w.check(search, "Coffret Poster")
+            w.check(search, "Coffret Poster")
+            self.assertEqual(sent, [])
+            pages[search] = f'<a href="{sugg}">s</a><a href="{prod}">le produit</a>'
+            w.check(search, "Coffret Poster")
+            self.assertEqual(len(sent), 1)
+            self.assertIn("FICHE EN LIGNE", sent[0])
+            self.assertIn(prod, sent[0])
+            pages[prod] = jsonld_page("InStock") + "0196214147225"
+            w.check(search, "Coffret Poster")  # suit désormais la fiche directement
+        self.assertIn("EN STOCK", sent[-1])
+        self.assertEqual(len(sent), 2)
+
+
 class CulturaTests(unittest.TestCase):
     """Réponses réelles de l'API GraphQL de Cultura (capturées le 5 octobre 2026, recherche 06400)."""
 

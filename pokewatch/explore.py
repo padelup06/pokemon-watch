@@ -64,13 +64,23 @@ def explore(url: str, out_path: str, headless: bool = False, wait=None, launch_o
             "  1. Acceptez les cookies si besoin.\n"
             "  2. Cliquez sur « Voir la disponibilité en magasin » / « Retrait en magasin ».\n"
             "  3. Tapez votre code postal et lancez la recherche, attendez la liste des magasins.\n"
-            "  4. Revenez ici et appuyez sur Entrée.\n"
+            "  4. Quand la liste des magasins est affichée, FERMEZ la fenêtre du navigateur.\n"
         )
         if wait:
             wait(page)  # utilisé par les tests pour piloter la page
         else:
-            input("Entrée quand la liste des magasins est affichée… ")
-        browser.close()
+            # Avec l'API synchrone de Playwright, les requêtes ne sont traitées que
+            # pendant un appel Playwright : on attend donc par petites tranches
+            # (et non avec input(), qui bloquerait l'enregistrement).
+            while not page.is_closed():
+                try:
+                    page.wait_for_timeout(500)
+                except Exception:
+                    break
+        try:
+            browser.close()
+        except Exception:
+            pass
 
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump({"page": url, "requests": captured}, f, ensure_ascii=False, indent=1)

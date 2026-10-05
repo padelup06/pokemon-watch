@@ -17,23 +17,24 @@ Le logiciel :
 |---|---|---|---|
 | JouéClub | ✅ | ✅ | ✅ |
 | La Grande Récré | ✅ | ✅ | ✅ |
-| Fnac | ⚠️ anti-robot DataDome | ⚠️ | ❌ pas encore |
-| Cultura | ⚠️ anti-robot Cloudflare | ⚠️ | ❌ pas encore |
+| Fnac | ❌ bloque même depuis un PC (DataDome) | ❌ | ❌ |
+| Cultura | ✅ depuis votre PC | ✅ depuis votre PC | ⏳ en cours |
 
 ⚠️ = bloqué depuis un serveur. Depuis votre PC, avec `browser_visible = true` (une vraie fenêtre
 de navigateur s'ouvre), ça passe en général. À vérifier chez vous avec
 `python -m pokewatch test --visible "<url>"`.
 
-## Fnac et Cultura : sur votre PC (Windows)
+## Cultura : sur votre PC (Windows)
 
-Leurs anti-robots bloquent tous les serveurs (GitHub compris) : ces deux enseignes sont relevées
-depuis votre PC, avec une vraie fenêtre de navigateur. Téléchargez le dépôt (bouton vert *Code* →
+Son anti-robot bloque tous les serveurs (GitHub compris) : Cultura est relevée depuis votre PC,
+avec une vraie fenêtre de navigateur. La Fnac bloque même les navigateurs pilotés depuis un PC
+personnel : pour elle, utilisez l'alerte de disponibilité intégrée au site / à l'application Fnac. Téléchargez le dépôt (bouton vert *Code* →
 *Download ZIP*), décompressez-le, puis double-cliquez dans l'ordre :
 
 1. `1-installer.bat` — installe ce qu'il faut (une seule fois) ;
-2. `2-explorer-fnac.bat` et `2-explorer-cultura.bat` — sur une fiche produit, cliquez sur la
-   disponibilité en magasin et tapez votre code postal : le fichier `exploration-*.json` produit
-   permet de brancher le stock magasin de ces enseignes (cookies non enregistrés) ;
+2. `2-explorer-cultura.bat` — sur une fiche produit, cliquez sur la disponibilité en magasin,
+   tapez votre code postal puis fermez la fenêtre : le fichier `exploration-cultura.json` produit
+   permet de brancher le stock magasin (cookies non enregistrés) ;
 3. `3-surveiller-fnac-cultura.bat` — surveillance continue (laissez la fenêtre ouverte).
 
 ## Installation

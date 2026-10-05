@@ -25,6 +25,17 @@ def format_alert(kind: str, retailer: str, name: str | None, url: str, status: s
     return f"{head}\n{title}{price_txt}\n{url}"
 
 
+def format_store_alert(retailer: str, name: str | None, url: str, stores) -> str:
+    lines = [f"🏬 EN STOCK EN MAGASIN — {retailer}", name or url]
+    for st in stores[:10]:
+        dist = f" ({st.distance_km:g} km)" if st.distance_km is not None else ""
+        lines.append(f"  • {st.name}{dist} : {st.label}")
+    if len(stores) > 10:
+        lines.append(f"  • … et {len(stores) - 10} autres magasins")
+    lines.append(url)
+    return "\n".join(lines)
+
+
 def should_alert(old: str, new: str) -> bool:
     """On n'alerte que quand un produit devient achetable."""
     return new in (IN_STOCK, PREORDER) and old not in (IN_STOCK, PREORDER)

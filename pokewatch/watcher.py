@@ -8,10 +8,12 @@ import re
 import time
 import tomllib
 from html import unescape
+from urllib.parse import urljoin
 
 from .fetch import FetchError, Fetcher
-from .notify import Notifier, format_alert, should_alert
-from .parse import parse_availability
+from .instore import PROXIMIS_RETAILERS, geocode, proximis_store_stock
+from .notify import Notifier, format_alert, format_store_alert, should_alert
+from .parse import UNKNOWN, parse_availability
 from .retailers import retailer_for_url
 from .store import Store
 
@@ -37,13 +39,15 @@ def load_config(path: str) -> dict:
 
 def extract_product_links(html: str, base_url: str) -> list[str]:
     retailer = retailer_for_url(base_url)
-    # Les liens sont souvent relatifs : on les rend absolus avant d'appliquer le motif.
-    origin = re.match(r"https?://[^/]+", base_url).group(0)
-    text = unescape(html).replace('href="/', f'href="{origin}/').replace("href='/", f"href='{origin}/")
-    text = text.replace("\\/", "/")  # URLs dans du JSON embarqué
+    text = unescape(html).replace("\\/", "/")  # URLs échappées dans du JSON embarqué
+    # Les liens sont souvent relatifs ("/p-x.html", "pokemon/x.html") : on les rend absolus.
+    base = re.search(r"""<base\s[^>]*href=["']([^"']+)""", text, re.I)
+    root = urljoin(base_url, base.group(1)) if base else base_url
+    hrefs = [urljoin(root, h) for h in re.findall(r"""href=["']([^"'#]+)""", text)]
     seen: dict[str, None] = {}
-    for m in retailer.product_url.finditer(text):
-        seen.setdefault(m.group(0))
+    for candidate in [*hrefs, text]:
+        for m in retailer.product_url.finditer(candidate):
+            seen.setdefault(m.group(0))
     return list(seen)
 
 
@@ -59,11 +63,14 @@ class Watcher:
         s = cfg["settings"]
         self.cfg = cfg
         self.store = Store(s.get("database", "pokewatch.db"))
-        self.fetcher = Fetcher(s.get("browser", "auto"))
+        self.fetcher = Fetcher(s.get("browser", "auto"), headless=not s.get("browser_visible", False))
         self.notifier = Notifier(cfg["alerts"])
         self.delay = (float(s.get("min_delay_seconds", 2)), float(s.get("max_delay_seconds", 6)))
         self.keywords = s.get("keywords", ["pokemon"])
         self.max_discovered = int(s.get("max_products_per_search", 40))
+        self.location = s.get("code_postal") or s.get("ville")
+        self.radius_km = int(s.get("rayon_km", 30))
+        self._coords: tuple[float, float] | None = None
 
     def _pause(self) -> None:
         time.sleep(random.uniform(*self.delay))
@@ -98,12 +105,32 @@ class Watcher:
             self.store.record_error(url, retailer.key, str(e))
             print(f"[{retailer.name}] ⚠ {e} : {url}")
             return
-        av = parse_availability(html, retailer.in_stock_keywords, retailer.out_of_stock_keywords)
+        if retailer.use_keywords:
+            av = parse_availability(html, retailer.in_stock_keywords, retailer.out_of_stock_keywords)
+        else:
+            av = parse_availability(html)
         name = label or av.name
         old = self.store.record(url, retailer.key, av.status, name, av.price)
         print(f"[{retailer.name}] {av.status:<11} ({av.source or '-'}) {name or url}")
-        if old is not None and should_alert(old, av.status):
+        # old == "" : premier relevé du produit, on enregistre sans alerter.
+        if old and should_alert(old, av.status):
             self.notifier.send(format_alert("stock", retailer.name, name, url, av.status, av.price))
+        if self.location and retailer.key in PROXIMIS_RETAILERS and av.status != UNKNOWN:
+            self.check_stores(url, retailer, name)
+
+    def check_stores(self, url: str, retailer, name: str | None) -> None:
+        try:
+            if self._coords is None:
+                self._coords = geocode(str(self.location))
+            stocks = proximis_store_stock(url, *self._coords, radius_km=self.radius_km)
+        except FetchError as e:
+            print(f"[{retailer.name}] ⚠ magasins : {e}")
+            return
+        newly = self.store.record_store_stock(url, retailer.key, name, stocks)
+        in_stock = [s for s in stocks if s.in_stock]
+        print(f"    magasins à {self.radius_km} km : {len(in_stock)}/{len(stocks)} en stock")
+        if newly:
+            self.notifier.send(format_store_alert(retailer.name, name, url, newly))
 
     def run_once(self) -> None:
         self.discover()

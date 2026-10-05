@@ -50,12 +50,13 @@ def fetch_http(url: str, timeout: float = 20) -> str:
 
 
 class BrowserFetcher:
-    """Navigateur Chromium headless réutilisé entre les requêtes.
+    """Navigateur Chromium (invisible ou en fenêtre) réutilisé entre les requêtes.
 
     Nécessite : pip install playwright && playwright install chromium
     """
 
-    def __init__(self) -> None:
+    def __init__(self, headless: bool = True) -> None:
+        self.headless = headless
         self._pw = None
         self._browser = None
         self._context = None
@@ -68,10 +69,10 @@ class BrowserFetcher:
                 "Playwright non installé (pip install playwright && playwright install chromium)"
             ) from e
         self._pw = sync_playwright().start()
-        self._browser = self._pw.chromium.launch(headless=True)
-        self._context = self._browser.new_context(
-            locale="fr-FR", user_agent=USER_AGENTS[0], viewport={"width": 1366, "height": 900}
-        )
+        self._browser = self._pw.chromium.launch(headless=self.headless)
+        # On garde l'user-agent réel du navigateur : un faux user-agent incohérent
+        # avec le reste de l'empreinte est justement ce que repèrent les anti-robots.
+        self._context = self._browser.new_context(locale="fr-FR", viewport={"width": 1366, "height": 900})
 
     def fetch(self, url: str, timeout: float = 30) -> str:
         if self._context is None:
@@ -98,10 +99,14 @@ class BrowserFetcher:
 
 
 class Fetcher:
-    def __init__(self, browser_mode: str = "auto") -> None:
-        """browser_mode : "never", "auto" (si l'enseigne l'exige ou si HTTP échoue), "always"."""
+    def __init__(self, browser_mode: str = "auto", headless: bool = True) -> None:
+        """browser_mode : "never", "auto" (si l'enseigne l'exige ou si HTTP échoue), "always".
+
+        headless=False ouvre une vraie fenêtre de navigateur : plus lent, mais passe
+        beaucoup mieux les anti-robots (DataDome sur la Fnac, Cloudflare sur Cultura).
+        """
         self.browser_mode = browser_mode
-        self._browser = BrowserFetcher()
+        self._browser = BrowserFetcher(headless)
 
     def get(self, url: str, needs_browser: bool = False) -> str:
         if self.browser_mode == "always" or (self.browser_mode == "auto" and needs_browser):

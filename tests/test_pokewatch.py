@@ -64,7 +64,7 @@ class ParseTests(unittest.TestCase):
 class RetailerTests(unittest.TestCase):
     def test_lookup(self):
         self.assertEqual(retailer_for_url("https://www.cultura.com/p-x.html").key, "cultura")
-        self.assertEqual(retailer_for_url("https://www.auchan.fr/x/pr-C1").key, "auchan")
+        self.assertEqual(retailer_for_url("https://www.fnac.com/a123/x").key, "fnac")
         self.assertEqual(retailer_for_url("https://exemple.com").key, "autre")
         self.assertEqual(retailer_for_url("https://notcultura.com").key, "autre")
 
@@ -75,6 +75,35 @@ class RetailerTests(unittest.TestCase):
         self.assertEqual(links, ["https://www.cultura.com/p-coffret-pokemon-123.html", "https://www.cultura.com/p-livre-1.html"])
         self.assertTrue(matches_keywords(links[0], ["pokémon"]))
         self.assertFalse(matches_keywords(links[1], ["pokemon"]))
+
+
+class RealPagePatternsTests(unittest.TestCase):
+    """Motifs relevés sur les vrais sites (octobre 2026)."""
+
+    def test_joueclub_links(self):
+        base = "https://www.joueclub.fr/nos-heros/pokemon.html"
+        html = ('<base href="https://www.joueclub.fr/" target="_self" />'
+                '<a href="https://www.joueclub.fr/pokemon/pokebox-mega-puissances-mega-dracolosse-0196214141735.html">'
+                '<a href="contenu/les-cartes-pokemon.html"><a href="nos-heros/pokemon.html">'
+                '<a href="figurines/pokemon-clip-n-go-0889933950572.html">')
+        links = extract_product_links(html, base)
+        self.assertEqual(len(links), 2)
+        kept = [u for u in links if matches_keywords(u, ["joueclub.fr/pokemon/"])]
+        self.assertEqual(kept, ["https://www.joueclub.fr/pokemon/pokebox-mega-puissances-mega-dracolosse-0196214141735.html"])
+
+    def test_lagranderecre_links(self):
+        base = "https://www.lagranderecre.fr/cartes-a-collectionner/"
+        html = ('<a href="https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/kit-d-initiation-pokemon-fevrier.html">'
+                '<a href="https://www.lagranderecre.fr/jouet-pokemon.html">'
+                '<a href="https://www.lagranderecre.fr/magasins/la-grande-recre-poissonniere.html">')
+        self.assertEqual(extract_product_links(html, base),
+                         ["https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/kit-d-initiation-pokemon-fevrier.html"])
+
+    def test_proximis_context(self):
+        from pokewatch.instore import _context
+        html = ('{"websiteId":100052,"sectionId":103089,"pageId":100312}'
+                '"stock":{"showStoreAvailability":true,"storeLocatorDistance":"100kilometers","sku":"896744","skuId":74210676}')
+        self.assertEqual(_context(html), ({"websiteId": 100052, "sectionId": 103089, "pageId": 100312}, "896744"))
 
 
 class StoreAndAlertTests(unittest.TestCase):
@@ -92,6 +121,23 @@ class StoreAndAlertTests(unittest.TestCase):
         self.assertEqual((row["name"], row["price"], row["status"]), ("A", 10.0, IN_STOCK))
         self.assertEqual(len(s.events()), 2)
 
+    def test_store_stock_transitions(self):
+        from pokewatch.instore import StoreStock
+        s = Store(self.db)
+        u = "https://www.lagranderecre.fr/a/b.html"
+        s.add_product(u, "lagranderecre")
+        a_out = StoreStock("1", "LGR Paris", 1.5, False, "En rupture")
+        a_in = StoreStock("1", "LGR Paris", 1.5, True, "En stock")
+        b_in = StoreStock("2", "LGR Lyon", 9.0, True, "En stock")
+        self.assertEqual(s.record_store_stock(u, "lagranderecre", "X", [a_out, b_in]), [])  # 1er relevé : silence
+        self.assertEqual([x.name for x in s.record_store_stock(u, "lagranderecre", "X", [a_in, b_in])], ["LGR Paris"])
+        self.assertEqual([r["store_name"] for r in s.stores_in_stock(u)], ["LGR Paris", "LGR Lyon"])
+        # Lyon disparaît de la réponse => rupture
+        self.assertEqual(s.record_store_stock(u, "lagranderecre", "X", [a_in]), [])
+        self.assertEqual([r["store_name"] for r in s.stores_in_stock(u)], ["LGR Paris"])
+        # Lyon revient => alerte
+        self.assertEqual([x.name for x in s.record_store_stock(u, "lagranderecre", "X", [a_in, b_in])], ["LGR Lyon"])
+
     def test_should_alert(self):
         self.assertTrue(should_alert(OUT_OF_STOCK, IN_STOCK))
         self.assertTrue(should_alert("", IN_STOCK))
@@ -105,6 +151,9 @@ class StoreAndAlertTests(unittest.TestCase):
             search: '<a href="/p-display-pokemon-1.html">x</a>',
             prod: jsonld_page("OutOfStock"),
         }
+        already = "https://www.cultura.com/p-coffret-pokemon-3.html"
+        pages[search] += '<a href="/p-coffret-pokemon-3.html">z</a>'
+        pages[already] = jsonld_page("InStock")  # déjà en stock au 1er passage : pas d'alerte
         cfg = {"settings": {"database": self.db, "min_delay_seconds": 0, "max_delay_seconds": 0},
                "alerts": {}, "products": [], "searches": [{"url": search}]}
         w = Watcher(cfg)
@@ -113,7 +162,7 @@ class StoreAndAlertTests(unittest.TestCase):
         w.notifier.send = sent.append
         with mock.patch("builtins.print"):
             w.run_once()
-            self.assertEqual(sent, [])  # premier passage : base constituée, rupture => pas d'alerte
+            self.assertEqual(sent, [])  # premier passage : base constituée sans alerte
             pages[search] += '<a href="/p-coffret-pokemon-2.html">y</a>'
             pages["https://www.cultura.com/p-coffret-pokemon-2.html"] = jsonld_page("OutOfStock")
             pages[prod] = jsonld_page("InStock")

@@ -3,6 +3,7 @@
   python -m pokewatch check            un passage complet, puis s'arrête
   python -m pokewatch watch            surveillance en continu
   python -m pokewatch test URL         teste la détection sur une fiche produit
+  python -m pokewatch test URL --cp 69002   ... et le stock des magasins proches
   python -m pokewatch dashboard        tableau de bord web
   python -m pokewatch notify-test      envoie une alerte de test
 """
@@ -13,6 +14,7 @@ import argparse
 import sys
 
 from .fetch import FetchError, Fetcher
+from .instore import PROXIMIS_RETAILERS, geocode, proximis_store_stock
 from .notify import Notifier
 from .parse import parse_availability
 from .retailers import retailer_for_url
@@ -28,6 +30,9 @@ def main(argv: list[str] | None = None) -> int:
     t = sub.add_parser("test")
     t.add_argument("url")
     t.add_argument("--browser", choices=["never", "auto", "always"], default="auto")
+    t.add_argument("--visible", action="store_true", help="ouvre une vraie fenêtre de navigateur (Fnac, Cultura)")
+    t.add_argument("--cp", help="code postal ou ville : affiche aussi le stock des magasins proches")
+    t.add_argument("--rayon", type=int, default=30, help="rayon en km autour du code postal (défaut 30)")
     d = sub.add_parser("dashboard")
     d.add_argument("--host", default="127.0.0.1")
     d.add_argument("--port", type=int, default=8000)
@@ -36,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "test":
         retailer = retailer_for_url(args.url)
-        fetcher = Fetcher(args.browser)
+        fetcher = Fetcher(args.browser, headless=not args.visible)
         try:
             html = fetcher.get(args.url, retailer.needs_browser)
         except FetchError as e:
@@ -44,12 +49,27 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         finally:
             fetcher.close()
-        av = parse_availability(html, retailer.in_stock_keywords, retailer.out_of_stock_keywords)
+        if retailer.use_keywords:
+            av = parse_availability(html, retailer.in_stock_keywords, retailer.out_of_stock_keywords)
+        else:
+            av = parse_availability(html)
         print(f"Enseigne : {retailer.name}\nProduit  : {av.name}\nStatut   : {av.status} (via {av.source or 'rien'})")
         print(f"Prix     : {av.price}")
         links = extract_product_links(html, args.url)
         if links:
             print(f"Liens produits trouvés sur la page : {len(links)} (ex. {links[0]})")
+        if args.cp:
+            if retailer.key not in PROXIMIS_RETAILERS:
+                print(f"Stock magasin : pas encore géré pour {retailer.name}")
+                return 0
+            try:
+                stocks = proximis_store_stock(args.url, *geocode(args.cp), radius_km=args.rayon)
+            except FetchError as e:
+                print(f"Stock magasin : {e}")
+                return 1
+            print(f"Magasins à moins de {args.rayon} km de {args.cp} : {len(stocks)}")
+            for st in stocks:
+                print(f"  {'✅' if st.in_stock else '❌'} {st.name} ({st.distance_km:g} km) : {st.label}")
         return 0
 
     try:

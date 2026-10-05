@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS products (
     first_seen TEXT NOT NULL,
     last_check TEXT,
     last_change TEXT,
-    last_error TEXT
+    last_error TEXT,
+    store_check TEXT
 );
 CREATE TABLE IF NOT EXISTS events (
     id       INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -29,6 +30,17 @@ CREATE TABLE IF NOT EXISTS events (
     price    REAL
 );
 CREATE INDEX IF NOT EXISTS events_ts ON events(ts DESC);
+CREATE TABLE IF NOT EXISTS store_stock (
+    url         TEXT NOT NULL,
+    store_id    TEXT NOT NULL,
+    store_name  TEXT NOT NULL,
+    distance_km REAL,
+    in_stock    INTEGER NOT NULL,
+    label       TEXT,
+    last_check  TEXT NOT NULL,
+    last_change TEXT NOT NULL,
+    PRIMARY KEY (url, store_id)
+);
 CREATE TABLE IF NOT EXISTS searches (
     url        TEXT PRIMARY KEY,
     first_run  TEXT NOT NULL
@@ -101,6 +113,65 @@ class Store:
             (url, retailer, now(), now(), error),
         )
         self.db.commit()
+
+    def record_store_stock(self, url: str, retailer: str, name: str | None, stocks) -> list:
+        """Enregistre le stock magasin par magasin.
+
+        Retourne les magasins qui viennent de passer en stock. Un magasin absent
+        de la réponse est considéré en rupture (La Grande Récré ne liste que les
+        magasins qui ont le produit).
+        """
+        ts = now()
+        previous = {
+            r["store_id"]: r for r in self.db.execute("SELECT * FROM store_stock WHERE url = ?", (url,))
+        }
+        first = self.db.execute("SELECT store_check FROM products WHERE url = ?", (url,)).fetchone()
+        first_time = first is None or first[0] is None
+        seen, newly = set(), []
+        for st in stocks:
+            seen.add(st.store_id)
+            old = previous.get(st.store_id)
+            changed = old is None or bool(old["in_stock"]) != st.in_stock
+            if st.in_stock and (old is None or not old["in_stock"]):
+                newly.append(st)
+            self.db.execute(
+                """INSERT INTO store_stock (url, store_id, store_name, distance_km, in_stock, label, last_check, last_change)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(url, store_id) DO UPDATE SET store_name = excluded.store_name,
+                     distance_km = excluded.distance_km, in_stock = excluded.in_stock, label = excluded.label,
+                     last_check = excluded.last_check,
+                     last_change = CASE WHEN ? THEN excluded.last_change ELSE store_stock.last_change END""",
+                (url, st.store_id, st.name, st.distance_km, int(st.in_stock), st.label, ts, ts, changed),
+            )
+            if changed and not first_time and (old is not None or st.in_stock):
+                self.db.execute(
+                    "INSERT INTO events (ts, url, retailer, name, old, new, price) VALUES (?, ?, ?, ?, ?, ?, NULL)",
+                    (ts, url, retailer, f"{name or url} — {st.name}",
+                     None if old is None else ("en_stock" if old["in_stock"] else "rupture"),
+                     "en_stock" if st.in_stock else "rupture"),
+                )
+        for store_id, old in previous.items():
+            if store_id not in seen and old["in_stock"]:
+                self.db.execute(
+                    "UPDATE store_stock SET in_stock = 0, label = 'En rupture', last_check = ?, last_change = ? "
+                    "WHERE url = ? AND store_id = ?",
+                    (ts, ts, url, store_id),
+                )
+                self.db.execute(
+                    "INSERT INTO events (ts, url, retailer, name, old, new, price) VALUES (?, ?, ?, ?, 'en_stock', 'rupture', NULL)",
+                    (ts, url, retailer, f"{name or url} — {old['store_name']}"),
+                )
+        self.db.execute("UPDATE products SET store_check = ? WHERE url = ?", (ts, url))
+        self.db.commit()
+        # Premier relevé magasin de ce produit : on constitue l'état sans alerter.
+        if first_time:
+            return []
+        return newly
+
+    def stores_in_stock(self, url: str) -> list[sqlite3.Row]:
+        return self.db.execute(
+            "SELECT * FROM store_stock WHERE url = ? AND in_stock = 1 ORDER BY distance_km", (url,)
+        ).fetchall()
 
     def search_seen(self, url: str) -> bool:
         """Marque une page de recherche comme déjà parcourue ; retourne True si c'était déjà le cas."""

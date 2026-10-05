@@ -28,6 +28,9 @@ class Retailer:
     # Sites protégés par un anti-bot (DataDome, Cloudflare...) : un simple
     # appel HTTP est souvent bloqué, le navigateur headless passe mieux.
     needs_browser: bool = False
+    # False quand le site expose toujours des données schema.org fiables : une page
+    # sans ces données est alors une redirection (produit retiré), pas une fiche.
+    use_keywords: bool = True
 
 
 _COMMON_IN = ["Ajouter au panier", "En stock", "Disponible en ligne", "Livraison à domicile"]
@@ -51,31 +54,29 @@ RETAILERS: dict[str, Retailer] = {
             product_url=re.compile(r"https://www\.cultura\.com/p-[^\"'?#\s]+\.html"),
             in_stock_keywords=_COMMON_IN,
             out_of_stock_keywords=_COMMON_OUT,
+            needs_browser=True,  # Cloudflare
         ),
         Retailer(
             key="joueclub",
             name="JouéClub",
             domains=("joueclub.fr",),
-            product_url=re.compile(r"https://www\.joueclub\.fr/[^\"'?#\s]+\.html"),
+            # Les fiches produit finissent par le code EAN à 13 chiffres.
+            product_url=re.compile(r"https://www\.joueclub\.fr/[a-z0-9-]+/[^\"'?#\s/]+-\d{13}\.html"),
             in_stock_keywords=_COMMON_IN,
             out_of_stock_keywords=_COMMON_OUT,
+            use_keywords=False,
         ),
         Retailer(
             key="lagranderecre",
             name="La Grande Récré",
             domains=("lagranderecre.fr",),
-            product_url=re.compile(r"https://www\.lagranderecre\.fr/[^\"'?#\s]+\.html"),
+            # Au moins un dossier avant la fiche ; on écarte les pages magasins et éditoriales.
+            product_url=re.compile(
+                r"https://www\.lagranderecre\.fr/(?!magasins/|contenu/)(?:[^\"'?#\s/]+/)+[^\"'?#\s/]+\.html"
+            ),
             in_stock_keywords=_COMMON_IN,
             out_of_stock_keywords=_COMMON_OUT,
-        ),
-        Retailer(
-            key="auchan",
-            name="Auchan",
-            domains=("auchan.fr",),
-            product_url=re.compile(r"https://www\.auchan\.fr/[^\"'?#\s]+/pr-[A-Z0-9]+"),
-            in_stock_keywords=_COMMON_IN,
-            out_of_stock_keywords=_COMMON_OUT + ["Victime de son succès"],
-            needs_browser=True,
+            use_keywords=False,
         ),
         Retailer(
             key="carrefour",

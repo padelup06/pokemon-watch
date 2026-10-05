@@ -6,9 +6,15 @@ interval_minutes = 10        # fréquence des passages (restez raisonnable : 5 m
 jitter_seconds = 60          # aléa pour ne pas passer à heure fixe
 min_delay_seconds = 2        # pause entre deux pages
 max_delay_seconds = 6
-browser = "auto"             # never | auto | always  (auto = navigateur headless si l'enseigne l'exige ou si HTTP est bloqué)
+browser = "auto"             # never | auto | always  (auto = navigateur si l'enseigne l'exige ou si HTTP est bloqué)
+browser_visible = true       # vraie fenêtre de navigateur : indispensable pour la Fnac et Cultura (anti-robots)
 keywords = ["pokemon"]       # filtre appliqué aux liens trouvés sur les pages de recherche
 max_products_per_search = 40
+
+# Stock magasin par magasin (JouéClub et La Grande Récré) autour de chez vous.
+# Mettez votre code postal (ou une ville) ; laissez vide pour désactiver.
+code_postal = "75001"
+rayon_km = 30
 
 [alerts]
 # Laissez vide ce que vous n'utilisez pas. Ces valeurs peuvent aussi venir des variables
@@ -24,17 +30,22 @@ telegram_chat_id = ""
 #   python -m pokewatch test "<url>"   affiche le nombre de liens produits détectés.
 # ---------------------------------------------------------------------------
 
+# JouéClub : page héros Pokémon ; les cartes sont rangées dans /pokemon/
+[[searches]]
+url = "https://www.joueclub.fr/nos-heros/pokemon.html"
+keywords = ["joueclub.fr/pokemon/"]
+
+# La Grande Récré : rayon cartes à collectionner
+[[searches]]
+url = "https://www.lagranderecre.fr/cartes-a-collectionner/"
+
+# Fnac : protégée par DataDome, nécessite Playwright avec browser_visible = true
+[[searches]]
+url = "https://www.fnac.com/SearchResult/ResultList.aspx?Search=pokemon+carte"
+
+# Cultura : protégé par Cloudflare, nécessite Playwright (et passe mieux depuis une connexion à la maison)
 [[searches]]
 url = "https://www.cultura.com/search/results?search_query=pokemon%20carte"
-
-[[searches]]
-url = "https://www.joueclub.fr/recherche?q=pokemon"
-
-[[searches]]
-url = "https://www.lagranderecre.fr/recherche?q=pokemon"
-
-[[searches]]
-url = "https://www.auchan.fr/recherche?text=pokemon+carte"
 
 # ---------------------------------------------------------------------------
 # Produits précis à surveiller (fiches produit). Collez l'URL depuis le site.

@@ -54,10 +54,23 @@ def render(store: Store, retailer: str | None = None) -> str:
         rname = RETAILERS[p["retailer"]].name if p["retailer"] in RETAILERS else p["retailer"]
         err = f'<div class="muted">⚠ {escape(p["last_error"])}</div>' if p["last_error"] else ""
         price = f'{p["price"]:.2f} €' if p["price"] is not None else "—"
+        stores = store.stores_in_stock(p["url"])
+        if stores:
+            names = ", ".join(
+                escape(st["store_name"]) + (f' <span class="muted">{st["distance_km"]:g} km</span>' if st["distance_km"] is not None else "")
+                for st in stores[:3]
+            )
+            more = f' <span class="muted">+{len(stores) - 3}</span>' if len(stores) > 3 else ""
+            shops = f'<span class="b en_stock">{len(stores)}</span> {names}{more}'
+        elif p["store_check"]:
+            shops = '<span class="muted">aucun</span>'
+        else:
+            shops = '<span class="muted">—</span>'
         prod_html.append(
             f"<tr><td>{_badge(p['status'])}</td><td>{escape(rname)}</td>"
             f'<td><a href="{escape(p["url"])}" target="_blank" rel="noopener">{escape(name or p["url"])}</a>{err}</td>'
-            f"<td>{price}</td><td class=muted>{_when(p['last_change'])}</td><td class=muted>{_when(p['last_check'])}</td></tr>"
+            f'<td style="white-space:nowrap">{price}</td><td>{shops}</td>'
+            f"<td class=muted>{_when(p['last_change'])}</td><td class=muted>{_when(p['last_check'])}</td></tr>"
         )
 
     ev_html = []
@@ -71,13 +84,13 @@ def render(store: Store, retailer: str | None = None) -> str:
             f"<td>{_badge(e['old']) if e['old'] else '<span class=muted>nouveau</span>'} → {_badge(e['new'])}</td></tr>"
         )
 
-    empty = '<tr><td colspan="6" class="muted">Aucun produit suivi pour l\'instant. Lancez <code>python -m pokewatch check</code>.</td></tr>'
+    empty = '<tr><td colspan="7" class="muted">Aucun produit suivi pour l\'instant. Lancez <code>python -m pokewatch check</code>.</td></tr>'
     return f"""<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="60">
 <title>Pokémon Watch</title><style>{CSS}</style></head><body><main>
 <h1>Pokémon Watch</h1><p class="sub">{len(rows)} produits suivis · <b>{in_stock}</b> achetables · actualisation auto toutes les 60 s</p>
 <div class="chips">{''.join(chips)}</div>
-<div class="wrap"><table><thead><tr><th>Statut</th><th>Enseigne</th><th>Produit</th><th>Prix</th><th>Dernier changement</th><th>Dernier relevé</th></tr></thead>
+<div class="wrap"><table><thead><tr><th>En ligne</th><th>Enseigne</th><th>Produit</th><th>Prix</th><th>En magasin</th><th>Dernier changement</th><th>Dernier relevé</th></tr></thead>
 <tbody>{''.join(prod_html) or empty}</tbody></table></div>
 <h2>Derniers mouvements</h2>
 <div class="wrap"><table><thead><tr><th>Quand</th><th>Enseigne</th><th>Produit</th><th>Changement</th></tr></thead>

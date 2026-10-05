@@ -23,13 +23,31 @@ async function pokewatchExtract() {
   if (/captcha-delivery|geo\.captcha|Accès temporairement restreint/i.test(html + bodyText)) {
     return { status: "blocked" };
   }
+  let doc = document;
   const pick = (id) => {
-    const el = document.querySelector(`[data-automation-id="${id}"]`);
+    const el = doc.querySelector(`[data-automation-id="${id}"]`);
     return el ? el.textContent.replace(/\s+/g, " ").trim() : null;
   };
   // Le bloc d'achat peut s'afficher après le chargement : on l'attend jusqu'à 10 s.
   for (let i = 0; i < 20 && !pick("pdp-buyBox-webAvailability-status"); i++) {
     await new Promise((r) => setTimeout(r, 500));
+  }
+  let fromServer = false;
+  if (!pick("pdp-buyBox-webAvailability-status")) {
+    // Dans un onglet en arrière-plan, la Fnac n'affiche pas toujours son bloc d'achat.
+    // Il figure pourtant dans la page telle que le site l'envoie : on relit donc cette
+    // même page (même navigateur, mêmes cookies, donc même magasin choisi).
+    try {
+      const r = await fetch(location.href, { credentials: "include" });
+      const text = await r.text();
+      if (r.ok && !/captcha-delivery|geo\.captcha/i.test(text)) {
+        const parsed = new DOMParser().parseFromString(text, "text/html");
+        if (parsed.querySelector('[data-automation-id="pdp-buyBox-webAvailability-status"]')) {
+          doc = parsed;
+          fromServer = true;
+        }
+      }
+    } catch (e) { /* tant pis : on se rabat sur les offres plus bas */ }
   }
   const title = pick("pdp-productInformation-title");
   const h1 = document.querySelector("h1");
@@ -39,7 +57,7 @@ async function pokewatchExtract() {
     web: pick("pdp-buyBox-webAvailability-status"),
     storeName: pick("pdp-buyBox-storeShipping-shippingPlace"),
     storeText: pick("pdp-buyBox-storeAvailability-status"),
-    source: "bloc d'achat",
+    source: fromServer ? "bloc d'achat (page relue)" : "bloc d'achat",
   };
   result.status = pokewatchClassify(result.web, "web");
   result.storeStatus = result.storeText ? pokewatchClassify(result.storeText, "store") : null;
@@ -78,7 +96,10 @@ async function pokewatchExtract() {
     const av = fnac.map((o) => o.availability.toLowerCase());
     if (av.includes("instock")) { result.status = "en_stock"; result.source = "jsonld (vendu par Fnac)"; }
     else if (av.includes("outofstock")) { result.status = "rupture"; result.source = "jsonld (vendu par Fnac)"; }
-    else { result.status = "inconnu"; result.source = offers.length ? "jsonld (vendeurs tiers seulement)" : null; }
+    // Seuls des vendeurs tiers : la Fnac elle-même ne le vend pas, donc rupture chez la Fnac.
+    // Dès qu'elle le remet en vente, son offre apparaît et l'alerte part.
+    else if (offers.length) { result.status = "rupture"; result.source = "pas vendu par la Fnac, seulement par des vendeurs tiers"; }
+    else { result.status = "inconnu"; }
   }
   return result;
 }

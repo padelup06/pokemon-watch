@@ -15,7 +15,7 @@ import argparse
 import sys
 
 from .fetch import FetchError, Fetcher
-from .instore import PROXIMIS_RETAILERS, geocode, proximis_store_stock
+from .instore import STORE_RETAILERS, cultura_store_stock, geocode, proximis_store_stock
 from .notify import Notifier
 from .parse import parse_availability
 from .retailers import retailer_for_url
@@ -54,31 +54,39 @@ def main(argv: list[str] | None = None) -> int:
         try:
             html = fetcher.get(args.url, retailer.needs_browser)
         except FetchError as e:
+            fetcher.close()
             print(f"Échec de récupération : {e}")
             return 1
-        finally:
-            fetcher.close()
         if retailer.use_keywords:
             av = parse_availability(html, retailer.in_stock_keywords, retailer.out_of_stock_keywords)
         else:
             av = parse_availability(html)
         print(f"Enseigne : {retailer.name}\nProduit  : {av.name}\nStatut   : {av.status} (via {av.source or 'rien'})")
         print(f"Prix     : {av.price}")
+        if not args.cp:
+            fetcher.close()
         links = extract_product_links(html, args.url)
         if links:
             print(f"Liens produits trouvés sur la page : {len(links)} (ex. {links[0]})")
         if args.cp:
-            if retailer.key not in PROXIMIS_RETAILERS:
+            if retailer.key not in STORE_RETAILERS:
                 print(f"Stock magasin : pas encore géré pour {retailer.name}")
+                fetcher.close()
                 return 0
             try:
-                stocks = proximis_store_stock(args.url, *geocode(args.cp), radius_km=args.rayon)
+                if retailer.key == "cultura":
+                    stocks = cultura_store_stock(fetcher, args.url, args.cp, args.rayon)
+                else:
+                    stocks = proximis_store_stock(args.url, *geocode(args.cp), radius_km=args.rayon)
             except FetchError as e:
                 print(f"Stock magasin : {e}")
                 return 1
+            finally:
+                fetcher.close()
             print(f"Magasins à moins de {args.rayon} km de {args.cp} : {len(stocks)}")
             for st in stocks:
-                print(f"  {'✅' if st.in_stock else '❌'} {st.name} ({st.distance_km:g} km) : {st.label}")
+                dist = f" ({st.distance_km:g} km)" if st.distance_km is not None else ""
+                print(f"  {'✅' if st.in_stock else '❌'} {st.name}{dist} : {st.label}")
         return 0
 
     try:

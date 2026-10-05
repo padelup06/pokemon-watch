@@ -11,7 +11,7 @@ from html import unescape
 from urllib.parse import urljoin
 
 from .fetch import FetchError, Fetcher
-from .instore import PROXIMIS_RETAILERS, geocode, proximis_store_stock
+from .instore import PROXIMIS_RETAILERS, STORE_RETAILERS, cultura_store_stock, geocode, proximis_store_stock
 from .notify import Notifier, format_alert, format_store_alert, should_alert
 from .parse import UNKNOWN, parse_availability
 from .retailers import retailer_for_url
@@ -120,14 +120,17 @@ class Watcher:
         # old == "" : premier relevé du produit, on enregistre sans alerter.
         if old and should_alert(old, av.status):
             self.notifier.send(format_alert("stock", retailer.name, name, url, av.status, av.price))
-        if self.location and retailer.key in PROXIMIS_RETAILERS and av.status != UNKNOWN:
+        if self.location and retailer.key in STORE_RETAILERS and av.status != UNKNOWN:
             self.check_stores(url, retailer, name)
 
     def check_stores(self, url: str, retailer, name: str | None) -> None:
         try:
-            if self._coords is None:
-                self._coords = geocode(str(self.location))
-            stocks = proximis_store_stock(url, *self._coords, radius_km=self.radius_km)
+            if retailer.key == "cultura":
+                stocks = cultura_store_stock(self.fetcher, url, str(self.location), self.radius_km)
+            else:
+                if self._coords is None:
+                    self._coords = geocode(str(self.location))
+                stocks = proximis_store_stock(url, *self._coords, radius_km=self.radius_km)
         except FetchError as e:
             print(f"[{retailer.name}] ⚠ magasins : {e}")
             return

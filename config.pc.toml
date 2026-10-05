@@ -14,8 +14,12 @@ browser_visible = true
 keywords = ["pokemon"]
 max_products_per_search = 30
 
+# Stock magasin Cultura autour de chez vous (Cultura Nice et Cultura Mandelieu pour le 06)
+code_postal = "06000"
+rayon_km = 45
+
 [alerts]
-# Rempli automatiquement par surveiller-fnac-cultura.bat (fichier webhook.txt)
+# Rempli automatiquement par 3-surveiller-cultura.bat (fichier webhook.txt)
 
 [[searches]]
 url = "https://www.cultura.com/search/results?search_query=pokemon%20carte"

@@ -22,6 +22,9 @@ from .fetch import USER_AGENTS, FetchError
 
 # Enseignes dont le stock magasin est lisible via la plateforme Proximis.
 PROXIMIS_RETAILERS = {"joueclub", "lagranderecre"}
+# Enseignes dont le stock magasin passe par le navigateur (site protégé par un anti-robot).
+BROWSER_STORE_RETAILERS = {"cultura"}
+STORE_RETAILERS = PROXIMIS_RETAILERS | BROWSER_STORE_RETAILERS
 
 _UA = USER_AGENTS[0]
 _HTML_HEADERS = {
@@ -147,6 +150,81 @@ def _proximis_store_stock(product_url: str, lat: float, lon: float, radius_km: i
                 in_stock=bool(stock.get("available")),
                 label=stock.get("thresholdTitle") or ("En stock" if stock.get("available") else "En rupture"),
                 url=(common.get("URL") or {}).get("canonical"),
+            )
+        )
+    return result
+
+
+# --- Cultura ----------------------------------------------------------------
+#
+# Le site (Magento) expose une API GraphQL publique en GET :
+# - stores(search:"<code postal>") : magasins triés par distance, avec leur seller_code ;
+# - products(filter:{url_key:...}) : stock_item_extra.offer = une offre par magasin qui a
+#   le produit (seller_code + front_availability). Un magasin absent n'a pas le produit.
+# Le site étant derrière Cloudflare, les appels sont faits depuis le navigateur.
+
+CULTURA = "https://www.cultura.com"
+_cultura_stores_cache: dict[tuple[str, int], list[dict]] = {}
+
+
+def _graphql_url(query: str) -> str:
+    return f"{CULTURA}/magento/graphql?query=" + urllib.parse.quote(query, safe="{}(),:\"")
+
+
+def cultura_url_key(product_url: str) -> str:
+    m = re.search(r"/p-([^/?#]+)\.html", product_url)
+    if not m:
+        raise FetchError("adresse de fiche Cultura inattendue")
+    return m.group(1)
+
+
+def cultura_nearby_stores(fetcher, location: str, radius_km: int) -> list[dict]:
+    key = (location, radius_km)
+    if key not in _cultura_stores_cache:
+        q = (
+            '{stores(search:"%s",sort:{distance:ASC},limit:20){items{seller_code,name,distance,url_key}}}'
+            % location.replace('"', "")
+        )
+        data = fetcher.fetch_json(_graphql_url(q), CULTURA)
+        items = ((data.get("data") or {}).get("stores") or {}).get("items") or []
+        near = []
+        for it in items:
+            try:
+                dist = float(it.get("distance"))
+            except (TypeError, ValueError):
+                dist = None
+            if dist is None or dist <= radius_km:
+                near.append({**it, "distance": dist})
+        _cultura_stores_cache[key] = near
+    return _cultura_stores_cache[key]
+
+
+def cultura_store_stock(fetcher, product_url: str, location: str, radius_km: int = 30) -> list[StoreStock]:
+    stores = cultura_nearby_stores(fetcher, location, radius_km)
+    q = (
+        '{products(filter:{url_key:{eq:"%s"}},getDisabledProduct:1,resolverLight:1)'
+        "{items{stock_item_extra{offer{front_availability,seller_code,qty}}}}}" % cultura_url_key(product_url)
+    )
+    data = fetcher.fetch_json(_graphql_url(q), CULTURA)
+    items = ((data.get("data") or {}).get("products") or {}).get("items") or []
+    if not items:
+        raise FetchError("produit introuvable dans l'API Cultura")
+    offers = {
+        o.get("seller_code"): (o.get("front_availability") or "")
+        for o in ((items[0].get("stock_item_extra") or {}).get("offer") or [])
+    }
+    result = []
+    for st in stores:
+        avail = offers.get(st["seller_code"], "")
+        in_stock = avail == "available" or avail.startswith("available")
+        result.append(
+            StoreStock(
+                store_id=st["seller_code"],
+                name=st.get("name") or st["seller_code"],
+                distance_km=st.get("distance"),
+                in_stock=in_stock,
+                label="En stock" if in_stock else (f"Indisponible ({avail})" if avail else "Pas en stock"),
+                url=f"{CULTURA}/magasins/{st['url_key']}.html" if st.get("url_key") else None,
             )
         )
     return result

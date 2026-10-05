@@ -106,6 +106,33 @@ class RealPagePatternsTests(unittest.TestCase):
         self.assertEqual(_context(html), ({"websiteId": 100052, "sectionId": 103089, "pageId": 100312}, "896744"))
 
 
+class CulturaTests(unittest.TestCase):
+    """Réponses réelles de l'API GraphQL de Cultura (capturées le 5 octobre 2026, recherche 06400)."""
+
+    def test_store_stock(self):
+        from pokewatch import instore
+        fx = json.load(open(os.path.join(os.path.dirname(__file__), "fixtures", "cultura_graphql.json")))
+        calls = []
+
+        class FakeFetcher:
+            def fetch_json(self, url, origin):
+                calls.append(url)
+                return fx["stores"] if "stores(" in url else fx["product"]
+
+        instore._cultura_stores_cache.clear()
+        url = "https://www.cultura.com/p-booster-pokemon-m6-storm-emeralda-import-japon-13319873.html"
+        stocks = instore.cultura_store_stock(FakeFetcher(), url, "06400", radius_km=100)
+        self.assertEqual([(s.name, s.in_stock) for s in stocks], [
+            ("Cultura Mandelieu", False), ("Cultura Nice", False), ("Cultura Puget", False), ("Cultura Toulon", True)])
+        self.assertIn('url_key:{eq:"booster-pokemon-m6-storm-emeralda-import-japon-13319873"}', calls[1])
+        # liste des magasins mise en cache : un seul appel "stores" pour deux produits
+        instore.cultura_store_stock(FakeFetcher(), url, "06400", radius_km=100)
+        self.assertEqual(sum("stores(" in c for c in calls), 1)
+        instore._cultura_stores_cache.clear()
+        near = instore.cultura_store_stock(FakeFetcher(), url, "06400", radius_km=45)
+        self.assertEqual([s.name for s in near], ["Cultura Mandelieu", "Cultura Nice", "Cultura Puget"])
+
+
 class StoreAndAlertTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()

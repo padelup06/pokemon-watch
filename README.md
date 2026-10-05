@@ -18,7 +18,7 @@ Le logiciel :
 | JouéClub | ✅ | ✅ | ✅ |
 | La Grande Récré | ✅ | ✅ | ✅ |
 | Fnac | ❌ bloque même depuis un PC (DataDome) | ❌ | ❌ |
-| Cultura | ✅ depuis votre PC | ✅ depuis votre PC | ⏳ en cours |
+| Cultura | ✅ depuis votre PC | ✅ depuis votre PC | ✅ depuis votre PC |
 
 ⚠️ = bloqué depuis un serveur. Depuis votre PC, avec `browser_visible = true` (une vraie fenêtre
 de navigateur s'ouvre), ça passe en général. À vérifier chez vous avec
@@ -32,10 +32,8 @@ personnel : pour elle, utilisez l'alerte de disponibilité intégrée au site / 
 *Download ZIP*), décompressez-le, puis double-cliquez dans l'ordre :
 
 1. `1-installer.bat` — installe ce qu'il faut (une seule fois) ;
-2. `2-explorer-cultura.bat` — sur une fiche produit, cliquez sur la disponibilité en magasin,
-   tapez votre code postal puis fermez la fenêtre : le fichier `exploration-cultura.json` produit
-   permet de brancher le stock magasin (cookies non enregistrés) ;
-3. `3-surveiller-fnac-cultura.bat` — surveillance continue (laissez la fenêtre ouverte).
+2. `2-tester-cultura.bat` — un passage complet de test, résultat dans `test-cultura.txt` ;
+3. `3-surveiller-cultura.bat` — surveillance continue (laissez la fenêtre ouverte).
 
 ## Installation
 
@@ -90,6 +88,12 @@ JouéClub et La Grande Récré utilisent la même plateforme e-commerce (Proximi
 « Retirer en magasin » de leurs fiches interroge une API qui renvoie les magasins proches avec
 l'état du stock de chacun ; `pokewatch/instore.py` rejoue cette requête. Le code postal est
 converti en coordonnées par le géocodeur officiel de l'IGN (data.geopf.fr).
+
+Cultura (Magento) expose une API GraphQL : `stores(search:"<code postal>")` donne les magasins
+proches et leur `seller_code`, et `products(filter:{url_key:…})` liste une offre par magasin qui a
+le produit. Le site étant derrière Cloudflare, ces appels sont faits depuis la fenêtre de navigateur
+ouverte sur votre PC, comme le fait la page elle-même. `explorer-cultura.bat` (commande
+`explorer`) sert à capter ces requêtes si le site change.
 
 ## Limites à connaître
 

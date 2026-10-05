@@ -4,6 +4,7 @@ pour les sites protégés par un anti-bot."""
 from __future__ import annotations
 
 import gzip
+import json
 import random
 import urllib.error
 import urllib.request
@@ -57,6 +58,7 @@ class BrowserFetcher:
 
     def __init__(self, headless: bool = True) -> None:
         self.headless = headless
+        self._api_pages: dict = {}
         self._pw = None
         self._browser = None
         self._context = None
@@ -90,7 +92,42 @@ class BrowserFetcher:
         finally:
             page.close()
 
+    def fetch_json(self, url: str, origin: str, timeout: float = 30):
+        """Appel d'API fait depuis une page du site (cookies et protections du site
+        inclus), comme le ferait la page elle-même."""
+        if self._context is None:
+            self._start()
+        page = self._api_pages.get(origin)
+        if page is None or page.is_closed():
+            page = self._context.new_page()
+            try:
+                page.goto(origin + "/", wait_until="domcontentloaded", timeout=timeout * 1000)
+                page.wait_for_timeout(3000)
+            except Exception as e:
+                page.close()
+                raise FetchError(str(e)) from e
+            self._api_pages[origin] = page
+        try:
+            status, text = page.evaluate(
+                """async (u) => {
+                    const r = await fetch(u, {credentials: "include", headers: {"Accept": "application/json"}});
+                    return [r.status, await r.text()];
+                }""",
+                url,
+            )
+        except Exception as e:
+            raise FetchError(str(e)) from e
+        if status != 200:
+            self._api_pages.pop(origin, None)
+            page.close()
+            raise FetchError(f"HTTP {status}")
+        try:
+            return json.loads(text)
+        except ValueError as e:
+            raise FetchError("réponse non JSON (page anti-robot ?)") from e
+
     def close(self) -> None:
+        self._api_pages = {}
         if self._browser:
             self._browser.close()
         if self._pw:
@@ -117,6 +154,9 @@ class Fetcher:
             if self.browser_mode == "auto":
                 return self._browser.fetch(url)
             raise
+
+    def fetch_json(self, url: str, origin: str):
+        return self._browser.fetch_json(url, origin)
 
     def close(self) -> None:
         self._browser.close()

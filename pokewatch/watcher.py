@@ -112,6 +112,9 @@ class Watcher:
         self.delay = (float(s.get("min_delay_seconds", 2)), float(s.get("max_delay_seconds", 6)))
         self.keywords = s.get("keywords", ["pokemon"])
         self.max_discovered = int(s.get("max_products_per_search", 40))
+        # False : seuls vos produits (produits.txt / [[products]]) sont relevés ; les pages de
+        # recherche ne servent plus qu'à signaler les nouveautés.
+        self.track_discovered = bool(s.get("track_discovered", True))
         self.location = s.get("code_postal") or s.get("ville")
         self.radius_km = int(s.get("rayon_km", 30))
         self._coords: tuple[float, float] | None = None
@@ -248,7 +251,9 @@ class Watcher:
         self.discover()
         configured = self._products()
         skip = {p["url"] for p in self.cfg["watchlist"]} if self.exclude_watchlist else set()
-        urls = list(configured) + [u for u in sorted(self.store.known_urls()) if u not in configured and u not in skip]
+        urls = list(configured)
+        if self.track_discovered:
+            urls += [u for u in sorted(self.store.known_urls()) if u not in configured and u not in skip]
         for url in urls:
             self.check(url, configured.get(url))
             self._pause()

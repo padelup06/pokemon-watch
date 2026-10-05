@@ -170,6 +170,23 @@ class ArrivalTests(unittest.TestCase):
         self.assertEqual(s.record_store_stock(u, "joueclub", "X", [arr]), [])  # en stock -> arrivage : pas d'alerte
 
 
+class TrackDiscoveredTests(unittest.TestCase):
+    def test_only_my_products(self):
+        db = os.path.join(tempfile.mkdtemp(), "t.db")
+        search = "https://www.cultura.com/search/results?search_query=pokemon"
+        mine = "https://www.cultura.com/p-mon-produit-1.html"
+        other = "https://www.cultura.com/p-coffret-pokemon-2.html"
+        pages = {search: f'<a href="{other}">x</a>', mine: jsonld_page("OutOfStock"), other: jsonld_page("InStock")}
+        cfg = {"settings": {"database": db, "min_delay_seconds": 0, "max_delay_seconds": 0, "track_discovered": False},
+               "alerts": {}, "searches": [{"url": search}], "watchlist": [{"url": mine, "label": "Mon produit"}]}
+        w = Watcher(cfg)
+        visited = []
+        w.fetcher.get = lambda url, needs_browser=False: visited.append(url) or pages[url]
+        with mock.patch("builtins.print"):
+            w.run_once()
+        self.assertEqual(visited, [search, mine])  # le produit trouvé par la recherche n'est pas relevé
+
+
 class EanSearchTests(unittest.TestCase):
     def test_product_appears(self):
         db = os.path.join(tempfile.mkdtemp(), "t.db")

@@ -7,7 +7,7 @@
 
 [settings]
 database = "pokewatch-pc.db"
-interval_minutes = 10            # passage complet (nouveautés Cultura + tous les produits connus)
+interval_minutes = 10            # passage complet
 watchlist_file = "produits.txt"   # vos produits prioritaires…
 watchlist_interval_seconds = 60   # … revérifiés chaque minute entre deux passages complets
 jitter_seconds = 90
@@ -17,6 +17,7 @@ browser = "auto"                 # navigateur pour Cultura, accès direct pour J
 browser_visible = true
 keywords = ["pokemon"]
 max_products_per_search = 30
+track_discovered = false         # ne surveille que vos produits
 
 # Stock magasin autour de chez vous (06 : Cultura Nice / Mandelieu, JouéClub Nice, Antibes, Grasse…,
 # La Grande Récré Nice, Cagnes, Cannes)
@@ -26,9 +27,7 @@ rayon_km = 45
 [alerts]
 # Rempli automatiquement par 3-surveiller.bat (fichier webhook.txt)
 
-[[searches]]
-url = "https://www.cultura.com/search/results?search_query=pokemon%20carte"
-
-# Rayon « Cartes Pokémon » de Cultura : nouveautés
-[[searches]]
-url = "https://www.cultura.com/cartes-a-jouer/cartes-pokemon.html"
+# Aucune page de recherche : seuls VOS produits (produits.txt) sont surveillés.
+# Pour être alerté des nouveautés Cultura, décommentez :
+# [[searches]]
+# url = "https://www.cultura.com/cartes-a-jouer/cartes-pokemon.html"

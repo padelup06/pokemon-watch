@@ -10,6 +10,7 @@ max_delay_seconds = 5
 browser = "never"            # pas de navigateur sur GitHub : Fnac et Cultura y sont bloquées de toute façon
 keywords = ["pokemon"]
 max_products_per_search = 40
+track_discovered = false   # ne relève que vos produits (produits.txt)
 watchlist_file = "produits.txt"  # vos produits prioritaires, aussi vérifiés ici (filet de sécurité si le PC est éteint)
 # Alpes-Maritimes : centré sur Nice, couvre de Menton à Cannes / Grasse / Mandelieu
 # (La Grande Récré Nice, Cagnes, Cannes La Bocca ; JouéClub Nice x2, Monaco, Antibes, Grasse, Mandelieu)
@@ -18,10 +19,6 @@ rayon_km = 45
 
 [alerts]
 
-[[searches]]
-url = "https://www.joueclub.fr/nos-heros/pokemon.html"
-keywords = ["joueclub.fr/pokemon/"]
-alert_new = false   # la page affiche une sélection différente à chaque visite : pas d'alerte « nouveau »
-
+# Rayon cartes de La Grande Récré : alerte « nouveau produit » uniquement (non suivis ensuite)
 [[searches]]
 url = "https://www.lagranderecre.fr/cartes-a-collectionner/"

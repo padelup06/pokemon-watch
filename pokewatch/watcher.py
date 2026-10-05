@@ -123,6 +123,10 @@ class Watcher:
         self.location = s.get("code_postal") or s.get("ville")
         self.radius_km = int(s.get("rayon_km", 30))
         self._coords: tuple[float, float] | None = None
+        self.store_interval = float(s.get("store_check_seconds", 0))
+        self.store_backoff = float(s.get("store_error_pause_seconds", 300))
+        self._store_last: dict[str, float] = {}
+        self._store_pause: dict[str, float] = {}
         # GitHub : laisse la liste de surveillance au PC (vérifiée chaque minute) pour éviter les doublons.
         self.exclude_watchlist = bool(s.get("exclude_watchlist", False))
         self.watch_interval = float(s.get("watchlist_interval_seconds", 0))
@@ -186,7 +190,7 @@ class Watcher:
             if restock and old:
                 self.notifier.send(format_restock_alert(retailer.name, name, url, restock))
         if self.location and retailer.key in STORE_RETAILERS and av.status != UNKNOWN:
-            self.check_stores(url, retailer, name)
+            self.check_stores(url, retailer, name, html)
 
     def check_ean_search(self, url: str, label: str | None) -> None:
         """Recherche par code-barres (produit sans fiche en ligne) : on guette l'apparition
@@ -226,16 +230,25 @@ class Watcher:
                 )
             self.check(found, label)
 
-    def check_stores(self, url: str, retailer, name: str | None) -> None:
+    def check_stores(self, url: str, retailer, name: str | None, html: str | None = None) -> None:
+        now = time.time()
+        # Stock magasin moins souvent que le stock en ligne, et pause après une erreur :
+        # les API de stock limitent les demandes répétées.
+        if now < self._store_pause.get(retailer.key, 0):
+            return
+        if now - self._store_last.get(url, 0) < self.store_interval:
+            return
+        self._store_last[url] = now
         try:
             if retailer.key == "cultura":
                 stocks = cultura_store_stock(self.fetcher, url, str(self.location), self.radius_km)
             else:
                 if self._coords is None:
                     self._coords = geocode(str(self.location))
-                stocks = proximis_store_stock(url, *self._coords, radius_km=self.radius_km)
+                stocks = proximis_store_stock(url, *self._coords, radius_km=self.radius_km, html=html)
         except FetchError as e:
-            print(f"[{retailer.name}] ⚠ magasins : {e}")
+            self._store_pause[retailer.key] = time.time() + self.store_backoff
+            print(f"[{retailer.name}] ⚠ magasins : {e} — stock magasin en pause {self.store_backoff // 60:.0f} min", flush=True)
             return
         newly = self.store.record_store_stock(url, retailer.key, name, stocks)
         in_stock = sum(1 for s in stocks if s.in_stock)

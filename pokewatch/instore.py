@@ -13,6 +13,7 @@ from __future__ import annotations
 import http.cookiejar
 import json
 import re
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -99,26 +100,53 @@ def _context(html: str) -> tuple[dict, str]:
     raise FetchError("ce produit n'a pas de disponibilité en magasin")
 
 
-def proximis_store_stock(product_url: str, lat: float, lon: float, radius_km: int = 30) -> list[StoreStock]:
-    # L'API renvoie des 502 quand on l'interroge trop vite : on réessaie en espaçant.
-    for wait in (5, 15, None):
-        try:
-            return _proximis_store_stock(product_url, lat, lon, radius_km)
-        except FetchError as e:
-            if wait is None or "HTTP Error 5" not in str(e):
-                raise
-            time.sleep(wait)
+# Une session (cookies + jeton CSRF) par site, réutilisée : ouvrir une nouvelle session à
+# chaque produit fait répondre l'API en 502 quand on l'interroge souvent (constaté chez
+# JouéClub depuis une connexion personnelle).
+_sessions: dict[str, tuple] = {}
+_sessions_lock = threading.Lock()
 
 
-def _proximis_store_stock(product_url: str, lat: float, lon: float, radius_km: int) -> list[StoreStock]:
-    origin = re.match(r"https://[^/]+", product_url).group(0)
+def _session(origin: str, page_url: str, fresh: bool = False):
+    """(opener, cookies, html de la page si elle vient d'être chargée)."""
+    with _sessions_lock:
+        if not fresh and origin in _sessions:
+            opener, jar = _sessions[origin]
+            return opener, {c.name: c.value for c in jar}, None
     jar = http.cookiejar.CookieJar()
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+    with opener.open(urllib.request.Request(page_url, headers=_HTML_HEADERS), timeout=20) as r:
+        html = r.read().decode("utf-8", errors="replace")
+    with _sessions_lock:
+        _sessions[origin] = (opener, jar)
+    return opener, {c.name: c.value for c in jar}, html
+
+
+def proximis_store_stock(
+    product_url: str, lat: float, lon: float, radius_km: int = 30, html: str | None = None
+) -> list[StoreStock]:
+    """Stock magasin. `html` : la fiche déjà chargée (évite de la recharger)."""
     try:
-        with opener.open(urllib.request.Request(product_url, headers=_HTML_HEADERS), timeout=20) as r:
-            html = r.read().decode("utf-8", errors="replace")
+        return _proximis_store_stock(product_url, lat, lon, radius_km, html, fresh=False)
+    except FetchError as e:
+        if "HTTP Error 5" not in str(e):
+            raise
+    # Erreur serveur : une seule nouvelle tentative, avec une session neuve.
+    time.sleep(3)
+    return _proximis_store_stock(product_url, lat, lon, radius_km, None, fresh=True)
+
+
+def _proximis_store_stock(
+    product_url: str, lat: float, lon: float, radius_km: int, html: str | None, fresh: bool
+) -> list[StoreStock]:
+    origin = re.match(r"https://[^/]+", product_url).group(0)
+    try:
+        opener, cookies, page = _session(origin, product_url, fresh=fresh)
+        html = page or html
+        if html is None:
+            with opener.open(urllib.request.Request(product_url, headers=_HTML_HEADERS), timeout=20) as r:
+                html = r.read().decode("utf-8", errors="replace")
         ctx, sku = _context(html)
-        cookies = {c.name: c.value for c in jar}
         body = {
             **ctx,
             "data": {
@@ -158,6 +186,8 @@ def _proximis_store_stock(product_url: str, lat: float, lon: float, radius_km: i
     except FetchError:
         raise
     except Exception as e:
+        with _sessions_lock:
+            _sessions.pop(origin, None)
         raise FetchError(f"stock magasin indisponible : {e}") from e
 
     return [_proximis_item(item) for item in data.get("items", [])]

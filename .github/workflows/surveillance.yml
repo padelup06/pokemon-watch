@@ -2,7 +2,9 @@ name: Surveillance stocks Pokémon
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # GitHub lance souvent avec quelques minutes de retard
+    # Minutes décalées : les déclenchements à :00/:10/:20… sont les plus chargés chez
+    # GitHub, souvent retardés ou abandonnés.
+    - cron: "4,14,24,34,44,54 * * * *"
   workflow_dispatch:          # bouton « Run workflow » pour lancer à la main
 
 concurrency:

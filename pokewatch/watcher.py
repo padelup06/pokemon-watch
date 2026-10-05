@@ -197,6 +197,9 @@ class Watcher:
             self.store.record_error(url, retailer.key, str(e))
             print(f"[{retailer.name}] ⚠ recherche {ean} : {e}")
             return
+        if re.search(r"challenge-platform|cf-chl|<title>\s*Un instant", html, re.I):
+            print(f"[{retailer.name}] recherche {ean} : bloquée par la vérification Cloudflare (réessai au prochain passage)")
+            return
         found = None
         # La page de résultats peut proposer d'autres produits (suggestions) : on ne retient
         # qu'une fiche dont la page contient bien le code-barres recherché.

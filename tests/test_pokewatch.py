@@ -188,6 +188,15 @@ class TrackDiscoveredTests(unittest.TestCase):
 
 
 class EanSearchTests(unittest.TestCase):
+    def test_cloudflare_page_is_not_no_result(self):
+        db = os.path.join(tempfile.mkdtemp(), "t.db")
+        search = "https://www.cultura.com/search/results?search_query=0196214147225"
+        w = Watcher({"settings": {"database": db}, "alerts": {}})
+        w.fetcher.get = lambda url, needs_browser=False: "<html><head><title>Un instant…</title></head></html>"
+        with mock.patch("builtins.print") as p:
+            w.check(search, "Coffret Poster")
+        self.assertIn("Cloudflare", p.call_args[0][0])
+
     def test_product_appears(self):
         db = os.path.join(tempfile.mkdtemp(), "t.db")
         search = "https://www.cultura.com/search/results?search_query=0196214147225"

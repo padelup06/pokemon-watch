@@ -95,6 +95,11 @@ def ean_search(url: str) -> str | None:
     return m.group(1) if m else None
 
 
+def label_ean(label: str | None) -> str | None:
+    m = re.search(r"\bEAN\s*(\d{13})\b", label or "", re.I)
+    return m.group(1) if m else None
+
+
 def matches_keywords(url: str, keywords: list[str]) -> bool:
     if not keywords:
         return True
@@ -198,8 +203,11 @@ class Watcher:
             restock = self.store.set_restock(url, proximis_restock(html))
             if restock and old:
                 self.notifier.send(format_restock_alert(retailer.name, name, url, restock))
-        if self.location and retailer.key in STORE_RETAILERS and av.status != UNKNOWN:
-            self.check_stores(url, retailer, name, html)
+        # Code-barres noté dans le libellé (« … EAN 0196… ») : stock magasin lisible même
+        # sans fiche publiée (JouéClub, La Grande Récré).
+        ean = label_ean(label) if retailer.key in PROXIMIS_RETAILERS else None
+        if self.location and retailer.key in STORE_RETAILERS and (av.status != UNKNOWN or ean):
+            self.check_stores(url, retailer, name, html, ean)
 
     def check_ean_search(self, url: str, label: str | None) -> None:
         """Recherche par code-barres (produit sans fiche en ligne) : on guette l'apparition
@@ -239,7 +247,7 @@ class Watcher:
                 )
             self.check(found, label)
 
-    def check_stores(self, url: str, retailer, name: str | None, html: str | None = None) -> None:
+    def check_stores(self, url: str, retailer, name: str | None, html: str | None = None, ean: str | None = None) -> None:
         now = time.time()
         # Stock magasin moins souvent que le stock en ligne, et pause après une erreur :
         # les API de stock limitent les demandes répétées.
@@ -254,7 +262,7 @@ class Watcher:
             else:
                 if self._coords is None:
                     self._coords = geocode(str(self.location))
-                stocks = proximis_store_stock(url, *self._coords, radius_km=self.radius_km, html=html)
+                stocks = proximis_store_stock(url, *self._coords, radius_km=self.radius_km, html=html, ean=ean)
         except FetchError as e:
             self._store_pause[retailer.key] = time.time() + self.store_backoff
             print(f"[{retailer.name}] ⚠ magasins : {e} — stock magasin en pause {self.store_backoff // 60:.0f} min", flush=True)
@@ -264,16 +272,16 @@ class Watcher:
         incoming = sum(1 for s in stocks if s.incoming and not s.in_stock)
         print(f"    magasins à {self.radius_km} km : {in_stock}/{len(stocks)} en stock, {incoming} en arrivage")
         if newly:
-            self.add_quantities(url, retailer, newly, html)
+            self.add_quantities(url, retailer, newly, html, ean)
             self.notifier.send(format_store_alert(retailer.name, name, url, newly))
 
-    def add_quantities(self, url: str, retailer, stores, html: str | None) -> None:
+    def add_quantities(self, url: str, retailer, stores, html: str | None, ean: str | None = None) -> None:
         """Nombre estimé d'exemplaires pour les magasins qui viennent de passer en stock."""
         targets = {s.store_id for s in stores if s.in_stock}
         if not targets or retailer.key not in QUANTITY_RETAILERS or not self.cfg["settings"].get("estimate_quantity", True):
             return
         try:
-            qty = proximis_estimate_quantities(url, *self._coords, self.radius_km, targets, html=html)
+            qty = proximis_estimate_quantities(url, *self._coords, self.radius_km, targets, html=html, ean=ean)
         except FetchError as e:
             print(f"[{retailer.name}] quantités non estimées : {e}", flush=True)
             return

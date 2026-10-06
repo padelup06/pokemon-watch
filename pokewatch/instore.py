@@ -86,7 +86,10 @@ def geocode(query: str) -> tuple[float, float]:
     return lat, lon
 
 
-def _context(html: str) -> tuple[dict, str]:
+def _context(html: str, ean: str | None = None) -> tuple[dict, str]:
+    """(contexte de la page, code article). `ean` : code-barres connu du produit, qui sert
+    de code article quand sa fiche n'est pas (ou plus) publiée : l'API magasin le connaît
+    quand même (vérifié le 6/10 chez La Grande Récré)."""
     ctx = {}
     for key in ("websiteId", "sectionId", "pageId"):
         m = re.search(rf'"{key}":(\d+)', html)
@@ -98,6 +101,8 @@ def _context(html: str) -> tuple[dict, str]:
     # dont le code correspond au sien.
     product_skus = set(re.findall(r'"@type":"Product".*?"sku":"([^"]+)"', html, re.S)[:1])
     if not product_skus:
+        if ean:
+            return ctx, ean
         raise FetchError("fiche produit non publiée (redirection)")
     blocks = re.findall(r'"stock":\{"showStoreAvailability":true[^{}]*?"sku":"([^"]+)"(?:[^{}]*?"ean13":"([^"]*)")?', html)
     for sku, ean in blocks:
@@ -129,23 +134,24 @@ def _session(origin: str, page_url: str, fresh: bool = False):
 
 
 def proximis_store_stock(
-    product_url: str, lat: float, lon: float, radius_km: int = 30, html: str | None = None, quantity: int = 1
+    product_url: str, lat: float, lon: float, radius_km: int = 30, html: str | None = None, quantity: int = 1,
+    ean: str | None = None,
 ) -> list[StoreStock]:
     """Stock magasin. `html` : la fiche déjà chargée (évite de la recharger).
     `quantity` : nombre d'exemplaires demandés (un magasin qui en a moins n'est pas « en stock »)."""
     try:
-        return _proximis_store_stock(product_url, lat, lon, radius_km, html, fresh=False, quantity=quantity)
+        return _proximis_store_stock(product_url, lat, lon, radius_km, html, fresh=False, quantity=quantity, ean=ean)
     except FetchError as e:
         if "HTTP Error 5" not in str(e):
             raise
     # Erreur serveur : une seule nouvelle tentative, avec une session neuve.
     time.sleep(3)
-    return _proximis_store_stock(product_url, lat, lon, radius_km, None, fresh=True, quantity=quantity)
+    return _proximis_store_stock(product_url, lat, lon, radius_km, None, fresh=True, quantity=quantity, ean=ean)
 
 
 def proximis_estimate_quantities(
     product_url: str, lat: float, lon: float, radius_km: int, store_ids: set[str],
-    html: str | None = None, cap: int = 50, pause: float = 1.0, ask=None,
+    html: str | None = None, cap: int = 50, pause: float = 1.0, ask=None, ean: str | None = None,
 ) -> dict[str, tuple[int, bool]]:
     """Estime le nombre d'exemplaires par magasin.
 
@@ -154,7 +160,7 @@ def proximis_estimate_quantities(
     (dichotomie ; une requête répond pour tous les magasins à la fois).
     Retourne {store_id: (quantité, plafonné)} ; plafonné = « au moins `cap` ».
     """
-    ask = ask or (lambda q: proximis_store_stock(product_url, lat, lon, radius_km, html=html, quantity=q))
+    ask = ask or (lambda q: proximis_store_stock(product_url, lat, lon, radius_km, html=html, quantity=q, ean=ean))
     cache: dict[int, set[str]] = {}
 
     def ok_at(q: int) -> set[str]:
@@ -191,7 +197,8 @@ def proximis_estimate_quantities(
 
 
 def _proximis_store_stock(
-    product_url: str, lat: float, lon: float, radius_km: int, html: str | None, fresh: bool, quantity: int = 1
+    product_url: str, lat: float, lon: float, radius_km: int, html: str | None, fresh: bool, quantity: int = 1,
+    ean: str | None = None,
 ) -> list[StoreStock]:
     origin = re.match(r"https://[^/]+", product_url).group(0)
     try:
@@ -200,7 +207,7 @@ def _proximis_store_stock(
         if html is None:
             with opener.open(urllib.request.Request(product_url, headers=_HTML_HEADERS), timeout=20) as r:
                 html = r.read().decode("utf-8", errors="replace")
-        ctx, sku = _context(html)
+        ctx, sku = _context(html, ean)
         body = {
             **ctx,
             "data": {

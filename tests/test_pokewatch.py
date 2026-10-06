@@ -110,6 +110,13 @@ class RealPagePatternsTests(unittest.TestCase):
         # page catégorie (fiche dépubliée) : pas de Product schema.org -> refus
         with self.assertRaises(FetchError):
             _context(ctx + other + mine)
+        # ... sauf si l'on connaît le code-barres du produit : il sert alors de code article
+        self.assertEqual(_context(ctx + other, ean="0196214147225")[1], "0196214147225")
+
+    def test_label_ean(self):
+        from pokewatch.watcher import label_ean
+        self.assertEqual(label_ean("Coffret Poster (LGR) — EAN 0196214147225"), "0196214147225")
+        self.assertIsNone(label_ean("Mini Tin"))
 
 
 class ArrivalTests(unittest.TestCase):

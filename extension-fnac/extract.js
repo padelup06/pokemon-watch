@@ -96,7 +96,7 @@ async function pokewatchExtract() {
 
   // Diagnostic affiché dans la fenêtre de l'extension.
   const offers = [];
-  for (const sc of document.querySelectorAll('script[type="application/ld+json"]')) {
+  for (const sc of doc.querySelectorAll('script[type="application/ld+json"]')) {
     try {
       const d = JSON.parse(sc.textContent);
       for (const node of [].concat(d && d["@graph"] ? d["@graph"] : d)) {
@@ -130,6 +130,15 @@ async function pokewatchExtract() {
     // Dès qu'elle le remet en vente, son offre apparaît et l'alerte part.
     else if (offers.length) { result.status = "rupture"; result.source = "pas vendu par la Fnac, seulement par des vendeurs tiers"; }
     else { result.status = "inconnu"; }
+  } else if (["en_stock", "precommande"].includes(result.status) && offers.length &&
+             !offers.some((o) => /fnac/i.test(o.seller) && /instock|preorder|presale/i.test(o.availability))) {
+    // Quand la Fnac n'a plus le produit, son bloc d'achat affiche l'offre d'un vendeur
+    // partenaire (« En stock ») : ce n'est pas un retour en stock chez la Fnac.
+    const tiers = offers.filter((o) => !/fnac/i.test(o.seller) && /instock/i.test(o.availability));
+    result.status = "rupture";
+    result.source = "en stock seulement chez des vendeurs partenaires";
+    result.web = `${result.web} — vendeur partenaire` +
+      (tiers.length ? ` (${tiers.map((o) => `${o.seller} ${o.price || "?"} €`).join(", ")})` : "") + ", pas la Fnac";
   }
   return result;
 }

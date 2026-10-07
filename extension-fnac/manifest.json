@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Pokémon Watch — Fnac",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Surveille vos fiches Fnac dans votre propre navigateur et vous alerte sur Discord quand un produit revient en stock.",
   "permissions": [
     "alarms",

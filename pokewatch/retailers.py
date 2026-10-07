@@ -89,6 +89,9 @@ RETAILERS: dict[str, Retailer] = {
             in_stock_keywords=_COMMON_IN,
             out_of_stock_keywords=_COMMON_OUT,
             needs_browser=True,  # Cloudflare : passe seulement dans la fenêtre de navigateur du PC
+            # Fiches avec schema.org (vérifié le 7/10 : coffret Victini, en stock, 25,99 €) :
+            # pas de devinette par mots-clés, source de fausses alertes.
+            use_keywords=False,
             # Marketplace Carrefour : seules les offres vendues par Carrefour comptent.
             own_seller=re.compile(r"carrefour", re.I),
         ),

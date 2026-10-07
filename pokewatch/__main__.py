@@ -42,6 +42,7 @@ def main(argv: list[str] | None = None) -> int:
     t.add_argument("--cp", help="code postal ou ville : affiche aussi le stock des magasins proches")
     t.add_argument("--rayon", type=int, default=30, help="rayon en km autour du code postal (défaut 30)")
     t.add_argument("--quantite", action="store_true", help="estime le nombre d'exemplaires par magasin (La Grande Récré)")
+    t.add_argument("--premiere-fiche", action="store_true", help="page de recherche : teste aussi la première fiche trouvée")
     d = sub.add_parser("dashboard")
     d.add_argument("--host", default="127.0.0.1")
     d.add_argument("--port", type=int, default=8000)
@@ -76,6 +77,16 @@ def main(argv: list[str] | None = None) -> int:
         links = extract_product_links(html, args.url)
         if links:
             print(f"Liens produits trouvés sur la page : {len(links)} (ex. {links[0]})")
+            if args.premiere_fiche and not args.cp:
+                f2 = Fetcher(args.browser, headless=not args.visible)
+                try:
+                    html2 = f2.get(links[0], retailer.needs_browser)
+                    av2 = parse_availability(html2, seller=retailer.own_seller)
+                    print(f"\nPremière fiche : {links[0]}\nProduit  : {av2.name}\nStatut   : {av2.status} (via {av2.source or 'rien'})\nPrix     : {av2.price}")
+                except FetchError as e:
+                    print(f"Première fiche : échec ({e})")
+                finally:
+                    f2.close()
         if args.cp:
             if retailer.key not in STORE_RETAILERS:
                 print(f"Stock magasin : pas encore géré pour {retailer.name}")

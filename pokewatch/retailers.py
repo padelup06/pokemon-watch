@@ -109,6 +109,19 @@ RETAILERS: dict[str, Retailer] = {
             own_seller=re.compile(r"^\s*e\.?\s*leclerc\s*$", re.I),
         ),
         Retailer(
+            key="cdiscount",
+            name="Cdiscount",
+            domains=("cdiscount.com",),
+            # Fiches : https://www.cdiscount.com/<rayon>/.../f-<catégorie>-<référence>.html
+            product_url=re.compile(r"https://www\.cdiscount\.com/[^\"'?#\s]+/f-\d+-[^\"'?#\s/]+\.html"),
+            in_stock_keywords=_COMMON_IN,
+            out_of_stock_keywords=_COMMON_OUT,
+            needs_browser=True,  # Cloudflare : passe seulement dans la fenêtre de navigateur du PC
+            use_keywords=False,
+            # Surtout de la marketplace : seules les offres vendues par Cdiscount comptent.
+            own_seller=re.compile(r"cdiscount", re.I),
+        ),
+        Retailer(
             key="fnac",
             name="Fnac",
             domains=("fnac.com",),

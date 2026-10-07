@@ -51,6 +51,20 @@ def fetch_http(url: str, timeout: float = 20) -> str:
     return body.decode(charset, errors="replace")
 
 
+def resolve_url(url: str, timeout: float = 20) -> str | None:
+    """Adresse finale après redirections, ou None si la page n'existe pas (404/410)."""
+    req = urllib.request.Request(url, headers={"User-Agent": random.choice(USER_AGENTS), "Accept": "text/html"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.geturl()
+    except urllib.error.HTTPError as e:
+        if e.code in (404, 410):
+            return None
+        raise FetchError(f"HTTP {e.code}") from e
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        raise FetchError(str(getattr(e, "reason", e))) from e
+
+
 class BrowserFetcher:
     """Navigateur Chromium (invisible ou en fenêtre) réutilisé entre les requêtes.
 

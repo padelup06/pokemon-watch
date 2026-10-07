@@ -11,7 +11,7 @@ import tomllib
 from html import unescape
 from urllib.parse import urljoin
 
-from .fetch import FetchError, Fetcher
+from .fetch import FetchError, Fetcher, resolve_url
 from .instore import (
     PROXIMIS_RETAILERS,
     QUANTITY_RETAILERS,
@@ -240,6 +240,15 @@ class Watcher:
         if time.time() - self._ean_last.get(url, 0) < self.ean_search_interval:
             return
         self._ean_last[url] = time.time()
+        if retailer.key == "leclerc":
+            # Leclerc : e.leclerc/fp/<EAN> redirige vers la fiche si elle existe (404 sinon). Plus
+            # fiable que son moteur de recherche, qui ne trouvait pas le Mini Tin 30e le 7/10.
+            try:
+                final = resolve_url(f"https://www.e.leclerc/fp/{ean}")
+            except FetchError as e:
+                print(f"[{retailer.name}] ⚠ recherche {ean} : {e}")
+                return
+            return self._ean_result(url, retailer, ean, label, final.split("?")[0] if final else None)
         try:
             html = self.fetcher.get(url, retailer.needs_browser)
         except FetchError as e:
@@ -261,6 +270,9 @@ class Watcher:
                     break
             except FetchError:
                 continue
+        self._ean_result(url, retailer, ean, label, found)
+
+    def _ean_result(self, url: str, retailer, ean: str, label: str | None, found: str | None) -> None:
         first = self.store.get(url)["last_check"] is None
         self.store.record(url, retailer.key, "en_stock" if found else "inconnu", label, None)
         appeared = self.store.set_found(url, found)

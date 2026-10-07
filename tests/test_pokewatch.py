@@ -467,6 +467,21 @@ class ImageTests(unittest.TestCase):
         self.assertEqual(posted, [{"content": "✅ EN STOCK", "embeds": [{"image": {"url": "https://img.example/tin.jpg"}}]}])
 
 
+class SoftBlockTests(unittest.TestCase):
+    def test_three_unreadable_pages_pause_retailer(self):
+        db = os.path.join(tempfile.mkdtemp(), "t.db")
+        w = Watcher({"settings": {"database": db, "min_delay_seconds": 0, "max_delay_seconds": 0}, "alerts": {}, "watchlist": []})
+        u = "https://www.joueclub.fr/pokemon/pokemon-mini-tin-0196214146297.html"
+        fetched = []
+        pages = [jsonld_page("OutOfStock")] + ["<html><title>Salle d'attente</title></html>"] * 10
+        w.fetcher.get = lambda url, needs_browser=False: fetched.append(url) or pages.pop(0)
+        with mock.patch("builtins.print"):
+            for _ in range(6):
+                w.check(u, "Mini Tin")
+        self.assertEqual(len(fetched), 4)  # 1 lecture normale + 3 illisibles, puis pause
+        self.assertEqual(w.store.get(u)["status"], "rupture")
+
+
 class LeclercTests(unittest.TestCase):
     def test_marketplace_offers_ignored(self):
         from pokewatch.retailers import RETAILERS

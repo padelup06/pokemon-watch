@@ -177,6 +177,8 @@ class Watcher:
         self._store_pause: dict[str, float] = {}
         self._store_fails: dict[str, int] = {}  # erreurs consécutives par enseigne
         self._rate_pause: dict[str, float] = {}  # enseigne -> fin de pause après un HTTP 429
+        self._unreadable: dict[str, int] = {}  # pages illisibles d'affilée par enseigne
+        self._soft_blocks: dict[str, int] = {}  # séries de pages illisibles (pause croissante)
         # Recherches par code-barres (pages lourdes, produit pas encore en ligne) : espacées.
         self.ean_search_interval = float(s.get("ean_search_seconds", 0))
         self._ean_last: dict[str, float] = {}
@@ -256,9 +258,23 @@ class Watcher:
         if av.status == UNKNOWN and prev is not None and prev["status"] not in (None, "", UNKNOWN):
             # Page lue mais illisible (site qui limite les demandes, page d'attente…) : on garde le
             # dernier état connu, sinon son retour déclencherait une fausse nouvelle alerte.
+            title = re.search(r"<title[^>]*>([^<]*)", html or "", re.I)
             print(f"{time.strftime('%H:%M:%S')} [{retailer.name}] lecture incomplète, statut gardé : "
-                  f"{prev['status']} — {name or url}", flush=True)
+                  f"{prev['status']} — {name or url} (page reçue : « {(title.group(1).strip() if title else '?')[:60]} », "
+                  f"{len(html or '')} caractères)", flush=True)
+            n = self._unreadable.get(retailer.key, 0) + 1
+            self._unreadable[retailer.key] = n
+            if n >= 3:
+                # Plusieurs pages illisibles d'affilée : le site nous freine, on le laisse respirer.
+                self._soft_blocks[retailer.key] = self._soft_blocks.get(retailer.key, 0) + 1
+                pause = min(600 * 2 ** (self._soft_blocks[retailer.key] - 1), 3600)
+                self._rate_pause[retailer.key] = time.time() + pause
+                self._unreadable[retailer.key] = 0
+                print(f"[{retailer.name}] pages illisibles en série : pause de {pause // 60:.0f} min pour cette enseigne", flush=True)
             return
+        if av.status != UNKNOWN:
+            self._unreadable.pop(retailer.key, None)
+            self._soft_blocks.pop(retailer.key, None)
         old = self.store.record(url, retailer.key, av.status, name, av.price)
         self.store.set_image(url, av.image)
         print(f"{time.strftime('%H:%M:%S')} [{retailer.name}] {av.status:<11} ({av.source or '-'}) {name or url}", flush=True)

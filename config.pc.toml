@@ -9,11 +9,11 @@
 database = "pokewatch-pc.db"
 interval_minutes = 10            # passage complet
 watchlist_file = "produits.txt"   # vos produits prioritaires…
-watchlist_interval_seconds = 15   # … revérifiés en continu (repos de 15 s entre deux tours)
-parallel = true                   # une enseigne par fil : chaque produit revérifié toutes les ~45-65 s
+watchlist_interval_seconds = 5    # … revérifiés en continu (repos de 5 s entre deux tours)
+parallel = true                   # une enseigne par fil : stock en ligne de chaque produit revérifié toutes les ~25-35 s
 jitter_seconds = 90
-min_delay_seconds = 2
-max_delay_seconds = 5
+min_delay_seconds = 1
+max_delay_seconds = 3
 browser = "auto"                 # navigateur pour Cultura, accès direct pour JouéClub / La Grande Récré
 browser_visible = true
 browser_minimized = true         # fenêtre réduite dans la barre des tâches (ne pas la fermer)
@@ -26,7 +26,7 @@ track_discovered = false         # ne surveille que vos produits
 code_postal = "06000"
 rayon_km = 45
 zones = [{ name = "06", code_postal = "06000", rayon_km = 45 }]  # alertes magasin -> salon #alertes-06 (webhook-06.txt)
-store_check_seconds = 120        # stock magasin : au plus toutes les 2 min par produit (l'API limite)
+store_check_seconds = 600        # stock magasin : toutes les 10 min par produit (priorité au stock en ligne ; GitHub le relève aussi)
 store_error_pause_seconds = 300  # après une erreur de l'API magasin : pause de 5 min pour cette enseigne
 ean_search_seconds = 300         # recherches par code-barres (Cultura, Leclerc…) : au plus toutes les 5 min ; pause 15 min après un HTTP 429
 

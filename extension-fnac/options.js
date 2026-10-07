@@ -7,7 +7,7 @@ chrome.storage.local.get(["webhook", "webhook06", "zoneHooks", "products", "inte
   $("zoneHooks").value = s.zoneHooks || (s.webhook06 ? `06=${s.webhook06}` : "");
   const defaults = (await chrome.runtime.sendMessage("defaults")) || [];
   $("products").value = (s.products || defaults).join("\n");
-  $("interval").value = s.intervalMinutes || 3;
+  $("interval").value = s.intervalMinutes || 1;
   const when = (iso) => (iso ? new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "?");
   const st = Object.entries(s.state || {}).map(([u, v]) =>
     `${v.name || u}  (relevé à ${when(v.at)})\n   en ligne : ${v.web ? `${v.web} → ${v.status}` : `${v.status || "?"} (${v.source || "bloc d'achat introuvable"})`}\n   ` +
@@ -27,7 +27,7 @@ chrome.storage.local.get(["webhook", "webhook06", "zoneHooks", "products", "inte
 
 $("save").onclick = async () => {
   const products = $("products").value.split("\n").map(clean).filter((u) => u.startsWith("https://www.fnac.com/"));
-  await chrome.storage.local.set({ webhook: $("webhook").value.trim(), zoneHooks: $("zoneHooks").value.trim(), webhook06: "", products, intervalMinutes: Number($("interval").value) || 3 });
+  await chrome.storage.local.set({ webhook: $("webhook").value.trim(), zoneHooks: $("zoneHooks").value.trim(), webhook06: "", products, intervalMinutes: Number($("interval").value) || 1 });
   await chrome.runtime.sendMessage("reschedule");
   $("products").value = products.join("\n");
   out(`Enregistré : ${products.length} fiche(s).`);

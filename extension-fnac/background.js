@@ -7,7 +7,7 @@ const DEFAULTS = {
   webhook: "",
   webhook06: "", // ancien réglage : salon #alertes-06 seul
   zoneHooks: "", // contenu de webhooks-regions.txt : « 06=https://… », « paca=https://… »…
-  intervalMinutes: 3,
+  intervalMinutes: 1,
   products: [
     "https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Dresseur-d-Elite/a23200296/w-4",
     "https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Amphinobi-ex/a23200310/w-4",
@@ -27,7 +27,7 @@ async function settings() {
 async function schedule() {
   const { intervalMinutes } = await settings();
   await chrome.alarms.clear("pokewatch");
-  chrome.alarms.create("pokewatch", { periodInMinutes: Math.max(1, Number(intervalMinutes) || 3), delayInMinutes: 0.1 });
+  chrome.alarms.create("pokewatch", { periodInMinutes: Math.max(1, Number(intervalMinutes) || 1), delayInMinutes: 0.1 });
 }
 
 chrome.runtime.onInstalled.addListener(schedule);
@@ -66,13 +66,13 @@ function waitForLoad(tabId, timeoutMs = 45000) {
   });
 }
 
-async function readProduct(url, region = null, searchMode = null) {
+async function readProduct(url, region = null, searchMode = null, withStores = true) {
   const tab = await chrome.tabs.create({ url, active: false });
   try {
     await waitForLoad(tab.id);
-    await sleep(1500); // la lecture attend elle-même le bloc d'achat (jusqu'à 10 s)
+    await sleep(500); // la lecture attend elle-même le bloc d'achat (2 s au plus)
     const results = await chrome.scripting.executeScript({
-      target: { tabId: tab.id }, func: pokewatchExtract, args: [region, searchMode],
+      target: { tabId: tab.id }, func: pokewatchExtract, args: [region, searchMode, withStores],
     });
     const result = results && results[0] && results[0].result;
     // Page d'erreur, onglet fermé, vérification anti-robot… : pas de résultat exploitable.
@@ -145,13 +145,15 @@ async function checkAll() {
   try {
     const { products, state } = await settings();
     const report = [];
-    const { regionIdx = 0, searchMode = null } = await chrome.storage.local.get(["regionIdx", "searchMode"]);
+    const { regionIdx = 0, searchMode = null, cycle = 0 } = await chrome.storage.local.get(["regionIdx", "searchMode", "cycle"]);
+    // Stock en ligne à chaque tour (chaque minute) ; stock magasin et régions un tour sur trois.
+    const withStores = cycle % 3 === 0;
     const [rkey, rterm, rlat, rlon] = FNAC_REGIONS[regionIdx % FNAC_REGIONS.length];
     let mode = searchMode;
     for (const url of products) {
       let r;
       try {
-        r = await readProduct(url, { key: rkey, term: rterm, lat: rlat, lon: rlon }, mode);
+        r = await readProduct(url, withStores ? { key: rkey, term: rterm, lat: rlat, lon: rlon } : null, mode, withStores);
       } catch (e) {
         r = { status: "erreur", error: String(e) };
       }
@@ -219,16 +221,16 @@ async function checkAll() {
         region: r.region ? { key: r.region.key, term: r.region.term, error: r.region.error || null,
           n: r.region.stores ? r.region.stores.filter((x) => x.distanceKm == null || x.distanceKm <= 100).length : 0,
           all: r.region.stores ? r.region.stores.length : 0,
-          rayon: r.region.stores ? r.region.stores.filter((x) => x.status === "en_stock" && (x.distanceKm == null || x.distanceKm <= 100)).length : 0 } : null,
+          rayon: r.region.stores ? r.region.stores.filter((x) => x.status === "en_stock" && (x.distanceKm == null || x.distanceKm <= 100)).length : 0 } : prev.region || null,
       };
       report.push(`${name}\n   en ligne : ${r.web ? `${r.web} → ${LABEL[r.status] || r.status}` : LABEL[r.status]}\n   ` +
         (r.stores ? r.stores.map((s) => `Fnac ${s.name} : ${s.text}`).join("\n   ") : `${r.storeName || "magasin"} : ${r.storeText || "—"}`) +
         (r.region ? `\n   région ${r.region.key} (${r.region.term}) : ` + (r.region.stores
           ? `${r.region.stores.length} Fnac, ${r.region.stores.filter((s) => s.status === "en_stock").length} en rayon`
           : `recherche impossible (${r.region.error || "?"})`) : ""));
-      await sleep(3000 + Math.random() * 4000);
+      await sleep(1000 + Math.random() * 1500);
     }
-    await chrome.storage.local.set({ state, regionIdx: regionIdx + 1, searchMode: mode });
+    await chrome.storage.local.set({ state, regionIdx: regionIdx + (withStores ? 1 : 0), searchMode: mode, cycle: cycle + 1 });
     return report;
   } finally {
     running = false;

@@ -5,7 +5,7 @@
 //   pdp-buyBox-storeAvailability-status  -> « Indisponible en magasin », « Retrait 1h »…
 // Les offres de vendeurs tiers (marketplace) et les « Ajouter au panier » des produits
 // recommandés sont ignorés : seul le bloc d'achat Fnac compte.
-async function pokewatchExtract(region = null, searchMode = null) {
+async function pokewatchExtract(region = null, searchMode = null, withStores = true) {
   // Tout doit être DANS cette fonction : Chrome n'injecte dans la page que son code,
   // pas les autres fonctions du fichier.
   const pokewatchClassify = function (text, kind) {
@@ -50,8 +50,9 @@ async function pokewatchExtract(region = null, searchMode = null) {
     const el = doc.querySelector(`[data-automation-id="${id}"]`);
     return el ? el.textContent.replace(/\s+/g, " ").trim() : null;
   };
-  // Le bloc d'achat peut s'afficher après le chargement : on l'attend jusqu'à 10 s.
-  for (let i = 0; i < 20 && !pick("pdp-buyBox-webAvailability-status"); i++) {
+  // Le bloc d'achat peut s'afficher après le chargement : on l'attend 2 s (en arrière-plan il ne
+  // s'affiche pas, la page est alors relue telle que la Fnac l'envoie, juste après).
+  for (let i = 0; i < 4 && !pick("pdp-buyBox-webAvailability-status"); i++) {
     await new Promise((r) => setTimeout(r, 500));
   }
   let fromServer = false;
@@ -94,7 +95,7 @@ async function pokewatchExtract(region = null, searchMode = null) {
     const prid = (location.pathname.match(/\/a(\d+)/) || [])[1];
     const m = document.documentElement.outerHTML.match(/storeid["'=:\s]+(\d+)/i);
     const storeid = (m && m[1] !== "0" && m[1]) || "173"; // 173 = Fnac Cannes (magasin choisi le 6/10)
-    if (prid) {
+    if (prid && withStores) {
       const formid = crypto.randomUUID().replace(/-/g, "");
       const r = await fetch(`/nav/api/storepickup/storepickuppopin?prid=${prid}&storeid=${storeid}` +
         `&formid=${formid}&offerref=00000000-0000-0000-0000-000000000000&catalog=1`, { credentials: "include" });

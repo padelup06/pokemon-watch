@@ -194,6 +194,67 @@ class TrackDiscoveredTests(unittest.TestCase):
         self.assertEqual(visited, [search, mine])  # le produit trouvé par la recherche n'est pas relevé
 
 
+class DailyTests(unittest.TestCase):
+    def watcher(self):
+        db = os.path.join(tempfile.mkdtemp(), "t.db")
+        lgr = "https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/mini-tin.html"
+        cfg = {"settings": {"database": db, "min_delay_seconds": 0, "max_delay_seconds": 0, "code_postal": "06000"},
+               "alerts": {"discord_webhook": "https://discord.com/api/webhooks/1/x"},
+               "watchlist": [{"url": lgr, "label": "Mini Tin (LGR)"},
+                             {"url": "https://www.joueclub.fr/pokemon/x-0196214146297.html", "label": "Mini Tin (JC)"},
+                             {"url": "https://www.e.leclerc/recherche?q=0196214146297", "label": "Mini Tin (Leclerc)"}]}
+        w = Watcher(cfg)
+        w._coords = (43.7, 7.26)
+        w.store.add_product(lgr, "lagranderecre")
+        w.store.record(lgr, "lagranderecre", "rupture", "Mini Tin", None)
+        from pokewatch.instore import StoreStock
+        w.store.record_store_stock(lgr, "lagranderecre", "Mini Tin", [
+            StoreStock("g", "La grande recré GRASSE", 25.9, True, "En stock", None),
+            StoreStock("c", "La Grande Récré CAGNES", 11.5, True, "En stock", None)])
+        return w, lgr
+
+    def test_recap_with_quantities_and_trend(self):
+        from datetime import datetime
+        from pokewatch import daily
+        w, lgr = self.watcher()
+        qty = [{"g": (19, False), "c": (13, False)}, {"g": (19, False), "c": (11, False)}]
+        with mock.patch.object(daily, "proximis_estimate_quantities", side_effect=lambda *a, **k: qty.pop(0)):
+            daily.build_recap(w, datetime(2026, 10, 6, 9, tzinfo=daily.PARIS))
+            text = daily.build_recap(w, datetime(2026, 10, 7, 9, tzinfo=daily.PARIS))
+        self.assertIn("mer. 7 oct.", text)
+        self.assertIn("GRASSE : ~19 (= hier)", text)
+        self.assertIn("CAGNES : ~11 (-2 depuis hier)", text)
+        self.assertIn("• Mini Tin (JC) (JouéClub)", text)
+        self.assertIn("Pas encore de fiche : E.Leclerc (1)", text)
+
+    def test_pc_down_then_up(self):
+        import io, json as _json, time as _t
+        from pokewatch import daily
+        w, _ = self.watcher()
+        sent = []
+        w.notifier.send = sent.append
+        def ntfy(ts):
+            body = "\n".join(_json.dumps({"time": t}) for t in ts).encode()
+            return mock.patch.object(daily.urllib.request, "urlopen", return_value=io.BytesIO(body))
+        with mock.patch("builtins.print"):
+            with ntfy([]):
+                daily.check_pc(w)  # jamais vu : rien
+            with ntfy([_t.time() - 3600]):
+                daily.check_pc(w)
+                daily.check_pc(w)  # une seule alerte par panne
+            with ntfy([_t.time() - 60]):
+                daily.check_pc(w)
+        self.assertEqual(len(sent), 2)
+        self.assertIn("ne tourne plus", sent[0])
+        self.assertIn("a repris", sent[1])
+
+    def test_long_discord_message_split(self):
+        from pokewatch.notify import _chunks
+        parts = _chunks("\n".join(f"ligne {i} " + "x" * 50 for i in range(100)), 1900)
+        self.assertTrue(len(parts) > 1 and all(len(p) <= 1900 for p in parts))
+        self.assertEqual("\n".join(parts).count("ligne"), 100)
+
+
 class LeclercTests(unittest.TestCase):
     def test_marketplace_offers_ignored(self):
         from pokewatch.retailers import RETAILERS

@@ -29,6 +29,8 @@ store_check_seconds = 120        # stock magasin : au plus toutes les 2 min par 
 store_error_pause_seconds = 300  # après une erreur de l'API magasin : pause de 5 min pour cette enseigne
 ean_search_seconds = 300         # recherches par code-barres (Cultura, Leclerc) : au plus toutes les 5 min
 
+heartbeat = true                 # signale à GitHub que le PC tourne (alerte Discord s'il s'arrête)
+
 [alerts]
 # Rempli automatiquement par 3-surveiller.bat (fichier webhook.txt)
 

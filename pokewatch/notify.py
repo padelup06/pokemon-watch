@@ -61,6 +61,26 @@ def _post_json(url: str, payload: dict) -> None:
     urllib.request.urlopen(req, timeout=15).read()
 
 
+def _chunks(message: str, limit: int) -> list[str]:
+    """Découpe un long message en morceaux, entre deux lignes."""
+    parts, cur = [], ""
+    for line in message.split("\n"):
+        while len(line) > limit:
+            if cur:
+                parts.append(cur)
+                cur = ""
+            parts.append(line[:limit])
+            line = line[limit:]
+        if cur and len(cur) + 1 + len(line) > limit:
+            parts.append(cur)
+            cur = line
+        else:
+            cur = f"{cur}\n{line}" if cur else line
+    if cur:
+        parts.append(cur)
+    return parts or [""]
+
+
 class Notifier:
     def __init__(self, cfg: dict) -> None:
         self.discord = cfg.get("discord_webhook") or None
@@ -71,7 +91,8 @@ class Notifier:
         print(f"\n🔔 {message}\n", flush=True)
         if self.discord:
             try:
-                _post_json(self.discord, {"content": message})
+                for part in _chunks(message, 1900):  # Discord refuse les messages de plus de 2000 caractères
+                    _post_json(self.discord, {"content": part})
             except Exception as e:
                 print(f"[discord] échec : {e}")
         if self.tg_token and self.tg_chat:

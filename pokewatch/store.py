@@ -41,6 +41,10 @@ CREATE TABLE IF NOT EXISTS store_stock (
     last_change TEXT NOT NULL,
     PRIMARY KEY (url, store_id)
 );
+CREATE TABLE IF NOT EXISTS meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
 CREATE TABLE IF NOT EXISTS searches (
     url        TEXT PRIMARY KEY,
     first_run  TEXT NOT NULL
@@ -230,6 +234,14 @@ class Store:
         self.db.execute("UPDATE searches SET last_check = ? WHERE url = ?", (now(), url))
         self.db.commit()
         return True
+
+    def get_meta(self, key: str) -> str | None:
+        row = self.db.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+        return row[0] if row else None
+
+    def set_meta(self, key: str, value: str | None) -> None:
+        self.db.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (key, value))
+        self.db.commit()
 
     def products(self) -> list[sqlite3.Row]:
         return self.db.execute(

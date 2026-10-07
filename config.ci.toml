@@ -17,6 +17,11 @@ watchlist_file = "produits.txt"  # vos produits prioritaires, aussi vérifiés i
 code_postal = "06000"
 rayon_km = 45
 
+# Récapitulatif Discord chaque matin (heure de Paris) et alerte si le PC ne tourne plus
+recap_hour = 9
+watch_pc = true
+pc_silence_minutes = 15
+
 [alerts]
 
 # ---- Nouvelles fiches Pokémon : alerte « 🆕 Nouveau produit » (produits ensuite non suivis) ----

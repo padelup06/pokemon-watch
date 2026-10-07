@@ -134,11 +134,22 @@ def main(argv: list[str] | None = None) -> int:
     else:
         w = Watcher(cfg)
         if args.cmd == "check":
+            from .daily import check_pc, maybe_send_recap
+
+            s = cfg["settings"]
             try:
                 w.run_once()
+                if s.get("recap_hour") is not None:
+                    maybe_send_recap(w, int(s["recap_hour"]))
+                if s.get("watch_pc"):
+                    check_pc(w, float(s.get("pc_silence_minutes", 15)))
             finally:
                 w.fetcher.close()
         else:
+            if cfg["settings"].get("heartbeat"):
+                from .daily import start_heartbeat
+
+                start_heartbeat(cfg["alerts"].get("discord_webhook"))
             w.run_forever()
     return 0
 

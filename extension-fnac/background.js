@@ -87,9 +87,13 @@ async function readProduct(url, region = null, searchMode = null) {
 // Autres régions : une par vérification, à tour de rôle (recherche « Trouver un magasin » sur sa
 // grande ville). Clés identiques aux salons Discord (webhooks-regions.txt).
 const FNAC_REGIONS = [
-  ["idf", "Paris"], ["ara", "Lyon"], ["occ", "Toulouse"], ["naq", "Bordeaux"], ["hdf", "Lille"],
-  ["ge", "Strasbourg"], ["pdl", "Nantes"], ["bre", "Rennes"], ["nor", "Rouen"], ["bfc", "Dijon"],
-  ["cvl", "Tours"], ["cor", "Ajaccio"], ["paca", "Marseille"],
+  ["idf", "Paris", 48.856614, 2.352222], ["ara", "Lyon", 45.757549, 4.829766],
+  ["occ", "Toulouse", 43.604652, 1.444209], ["naq", "Bordeaux", 44.837789, -0.57918],
+  ["hdf", "Lille", 50.62925, 3.057256], ["ge", "Strasbourg", 48.573405, 7.752111],
+  ["pdl", "Nantes", 47.218371, -1.553621], ["bre", "Rennes", 48.117266, -1.677793],
+  ["nor", "Rouen", 49.443232, 1.099971], ["bfc", "Dijon", 47.322047, 5.04148],
+  ["cvl", "Tours", 47.394144, 0.68484], ["cor", "Ajaccio", 41.919229, 8.738635],
+  ["paca", "Marseille", 43.296482, 5.36978],
 ];
 
 // Salon de région d'une Fnac (alertes magasin). Les Fnac vues depuis Cannes vont du 06 à Marseille.
@@ -141,12 +145,12 @@ async function checkAll() {
     const { products, state } = await settings();
     const report = [];
     const { regionIdx = 0, searchMode = null } = await chrome.storage.local.get(["regionIdx", "searchMode"]);
-    const [rkey, rterm] = FNAC_REGIONS[regionIdx % FNAC_REGIONS.length];
+    const [rkey, rterm, rlat, rlon] = FNAC_REGIONS[regionIdx % FNAC_REGIONS.length];
     let mode = searchMode;
     for (const url of products) {
       let r;
       try {
-        r = await readProduct(url, { key: rkey, term: rterm }, mode);
+        r = await readProduct(url, { key: rkey, term: rterm, lat: rlat, lon: rlon }, mode);
       } catch (e) {
         r = { status: "erreur", error: String(e) };
       }

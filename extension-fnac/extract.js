@@ -100,27 +100,21 @@ async function pokewatchExtract(region = null, searchMode = null) {
         if (list.length) result.stores = list;
       }
       // Magasins d'une autre région : même recherche que la case « Trouver un magasin » du panneau
-      // (POST /nav/api/StorePickup/SearchStore). Le format exact n'a pas pu être relevé : on essaie
-      // les formats probables et on garde celui qui renvoie une liste de magasins.
+      // (format relevé par l'utilisateur le 7/10 : ville + coordonnées GPS, formulaire classique).
       if (region) {
-        const fields = { term: region.term, prid, catalog: "1", offerref: "00000000-0000-0000-0000-000000000000", formid };
-        const bodies = [
-          () => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return [f, {}]; },
-          () => [new URLSearchParams(fields).toString(), { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" }],
-          () => { const f = new FormData(); f.append("term", region.term); return [f, {}]; },
-          () => [JSON.stringify(fields), { "Content-Type": "application/json" }],
-        ];
-        const order = searchMode != null ? [searchMode] : bodies.map((_, i) => i);
-        result.region = { key: region.key, term: region.term, stores: null, mode: null };
-        for (const i of order) {
-          const [body, headers] = bodies[i]();
-          const rr = await fetch("/nav/api/StorePickup/SearchStore", {
-            method: "POST", body, credentials: "include", headers: { "X-Requested-With": "XMLHttpRequest", ...headers },
-          });
-          const list = rr.ok ? parseStores(await rr.text()) : [];
-          if (list.length) { result.region.stores = list; result.region.mode = i; break; }
-          result.region.error = `format ${i} : HTTP ${rr.status}, ${list.length} magasin`;
-        }
+        const params = new URLSearchParams({
+          inputValue: region.term.toLowerCase(), latitude: String(region.lat), longitude: String(region.lon),
+          prid, catalog: "1", onShlef: "false", isRetreatOneHour: "false", formId: formid,
+          offerref: "00000000-0000-0000-0000-000000000000",
+        });
+        result.region = { key: region.key, term: region.term, stores: null, mode: 0 };
+        const rr = await fetch("/nav/api/StorePickup/SearchStore", {
+          method: "POST", body: params.toString(), credentials: "include",
+          headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-Requested-With": "XMLHttpRequest" },
+        });
+        const list = rr.ok ? parseStores(await rr.text()) : [];
+        if (list.length) result.region.stores = list;
+        else result.region.error = `HTTP ${rr.status}, aucun magasin dans la réponse`;
       }
     }
   } catch (e) { /* le bloc d'achat suffit si cet appel échoue */ }

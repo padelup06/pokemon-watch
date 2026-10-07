@@ -228,6 +228,13 @@ class Watcher:
         else:
             av = parse_availability(html, seller=retailer.own_seller)
         name = label or av.name
+        prev = self.store.get(url)
+        if av.status == UNKNOWN and prev is not None and prev["status"] not in (None, "", UNKNOWN):
+            # Page lue mais illisible (site qui limite les demandes, page d'attente…) : on garde le
+            # dernier état connu, sinon son retour déclencherait une fausse nouvelle alerte.
+            print(f"{time.strftime('%H:%M:%S')} [{retailer.name}] lecture incomplète, statut gardé : "
+                  f"{prev['status']} — {name or url}", flush=True)
+            return
         old = self.store.record(url, retailer.key, av.status, name, av.price)
         print(f"{time.strftime('%H:%M:%S')} [{retailer.name}] {av.status:<11} ({av.source or '-'}) {name or url}", flush=True)
         # old == "" : premier relevé du produit, on enregistre sans alerter.
@@ -251,9 +258,13 @@ class Watcher:
         row = self.store.get(url)
         if row is not None and row["found_url"]:
             return self.check(row["found_url"], label)  # fiche déjà trouvée : on suit directement la fiche
-        if time.time() - self._ean_last.get(url, 0) < self.ean_search_interval:
+        # Mémorisé dans la base : sur GitHub, chaque passage est un nouveau programme.
+        last = self._ean_last.get(url) or float(self.store.get_meta(f"ean_last_{url}") or 0)
+        if time.time() - last < self.ean_search_interval:
             return
         self._ean_last[url] = time.time()
+        if self.ean_search_interval:
+            self.store.set_meta(f"ean_last_{url}", str(self._ean_last[url]))
         if retailer.key == "leclerc":
             # Leclerc : e.leclerc/fp/<EAN> redirige vers la fiche si elle existe (404 sinon). Plus
             # fiable que son moteur de recherche, qui ne trouvait pas le Mini Tin 30e le 7/10.

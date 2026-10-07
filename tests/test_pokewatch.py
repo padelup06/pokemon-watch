@@ -406,6 +406,21 @@ class DiscordSetupTests(unittest.TestCase):
         self.assertEqual([len(p["options"]) for p in st["onboarding"]["prompts"]], [6, 8])
 
 
+class FlappingTests(unittest.TestCase):
+    def test_unreadable_page_keeps_last_status(self):
+        db = os.path.join(tempfile.mkdtemp(), "t.db")
+        u = "https://www.e.leclerc/fp/pokemon-30a-mini-tin-modele-aleatoire-0196214146297"
+        w = Watcher({"settings": {"database": db, "min_delay_seconds": 0, "max_delay_seconds": 0}, "alerts": {}, "watchlist": []})
+        pages = [jsonld_page("OutOfStock"), jsonld_page("InStock"), "<html>Trop de demandes</html>", jsonld_page("InStock")]
+        w.fetcher.get = lambda url, needs_browser=False: pages.pop(0)
+        sent = []
+        w.notifier.send = sent.append
+        with mock.patch("builtins.print"):
+            for _ in range(4):
+                w.check(u, "Mini Tin")
+        self.assertEqual(len(sent), 1)  # une seule alerte « en stock », pas de seconde après la page illisible
+
+
 class LeclercTests(unittest.TestCase):
     def test_marketplace_offers_ignored(self):
         from pokewatch.retailers import RETAILERS

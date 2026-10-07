@@ -11,6 +11,7 @@ browser = "never"            # pas de navigateur sur GitHub : Fnac et Cultura y 
 keywords = ["pokemon"]
 max_products_per_search = 40
 track_discovered = false   # ne relève que vos produits (produits.txt)
+ean_search_seconds = 900       # recherches par code-barres (Leclerc) : toutes les 15 min, Leclerc limite (HTTP 429)
 watchlist_file = "produits.txt"  # vos produits prioritaires, aussi vérifiés ici (filet de sécurité si le PC est éteint)
 # Alpes-Maritimes : centré sur Nice, couvre de Menton à Cannes / Grasse / Mandelieu
 # (La Grande Récré Nice, Cagnes, Cannes La Bocca ; JouéClub Nice x2, Monaco, Antibes, Grasse, Mandelieu)

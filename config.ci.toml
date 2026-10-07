@@ -24,6 +24,11 @@ rayon_km = 45
 #   code_postal = "83000"
 #   rayon_km = 40
 zones = [{ name = "06", code_postal = "06000", rayon_km = 45 }]
+# Les 13 régions (pokewatch/regions.py), vérifiées à tour de rôle : 2 par passage, chacune
+# environ toutes les 30 à 35 min. Le 06 reste vérifié à chaque passage.
+regions = true
+regions_every_minutes = 30
+max_slow_zones_per_run = 2
 
 # Récapitulatif Discord chaque matin (heure de Paris) et alerte si le PC ne tourne plus
 recap_hour = 9

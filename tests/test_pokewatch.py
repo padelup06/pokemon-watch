@@ -204,7 +204,7 @@ class DailyTests(unittest.TestCase):
                              {"url": "https://www.joueclub.fr/pokemon/x-0196214146297.html", "label": "Mini Tin (JC)"},
                              {"url": "https://www.e.leclerc/recherche?q=0196214146297", "label": "Mini Tin (Leclerc)"}]}
         w = Watcher(cfg)
-        w.zones[0]["coords"] = (43.7, 7.26)
+        w.zones[0]["points"][0]["coords"] = (43.7, 7.26)
         w.store.add_product(lgr, "lagranderecre")
         w.store.record(lgr, "lagranderecre", "rupture", "Mini Tin", None)
         from pokewatch.instore import StoreStock
@@ -218,7 +218,7 @@ class DailyTests(unittest.TestCase):
         from pokewatch import daily
         w, lgr = self.watcher()
         qty = [{"g": (19, False), "c": (13, False)}, {"g": (19, False), "c": (11, False)}]
-        with mock.patch.object(daily, "proximis_estimate_quantities", side_effect=lambda *a, **k: qty.pop(0)):
+        with mock.patch("pokewatch.watcher.proximis_estimate_quantities", side_effect=lambda *a, **k: qty.pop(0)):
             daily.build_recap(w, datetime(2026, 10, 6, 9, tzinfo=daily.PARIS))
             text = daily.build_recap(w, datetime(2026, 10, 7, 9, tzinfo=daily.PARIS))
         self.assertIn("mer. 7 oct.", text)
@@ -237,7 +237,7 @@ class DailyTests(unittest.TestCase):
                "alerts": {"discord_webhook": "main", "zone_webhooks": {"06": "hook06", "83": "hook83"}}, "watchlist": []}
         w = Watcher(cfg)
         for z, c in zip(w.zones, [(43.7, 7.26), (43.12, 5.93)]):
-            z["coords"] = c
+            z["points"][0]["coords"] = c
         answers = {(43.7, 7.26): [StoreStock("n", "NICE", 1, False, "Rupture")],
                    (43.12, 5.93): [StoreStock("t", "TOULON", 2, False, "Rupture")]}
         posted = []
@@ -253,6 +253,64 @@ class DailyTests(unittest.TestCase):
         self.assertEqual([h for h, _ in posted], ["hook83"])
         self.assertIn("TOULON", posted[0][1])
         self.assertEqual({r["store_id"]: r["zone"] for r in w.store.db.execute("SELECT * FROM store_stock")}, {"n": "06", "t": "83"})
+
+    def test_regions_round_robin_and_untouched_zones(self):
+        from pokewatch.instore import StoreStock
+        db = os.path.join(tempfile.mkdtemp(), "t.db")
+        w = Watcher({"settings": {"database": db, "zones": [{"name": "06", "code_postal": "06000", "rayon_km": 45}],
+                                  "regions": True, "max_slow_zones_per_run": 3}, "alerts": {}, "watchlist": []})
+        self.assertEqual(len(w.zones), 14)
+        self.assertEqual([p["location"] for p in w.zones[5]["points"]], ["33000", "87000", "86000"])  # Nouvelle-Aquitaine
+        seen = []
+        with mock.patch("builtins.print"):
+            for _ in range(5):
+                w.select_zones()
+                seen.append([z["name"] for z in w.zones if z["active"]])
+        self.assertTrue(all(r[0] == "06" and len(r) == 4 for r in seen[:4]))  # 06 + 3 régions par passage
+        self.assertEqual(len({n for r in seen[:5] for n in r[1:]}), 13)  # toutes les régions en 5 passages
+        # Un magasin d'une zone non vérifiée ce passage garde son état « en stock ».
+        u = "https://www.lagranderecre.fr/x/y.html"
+        w.store.add_product(u, "lagranderecre")
+        t = StoreStock("t", "TOULON", 60, True, "En stock"); t.zone = "paca"
+        n = StoreStock("n", "NICE", 1, True, "En stock"); n.zone = "06"
+        w.store.record_store_stock(u, "lagranderecre", "X", [t, n], {"06", "paca"})
+        w.store.record_store_stock(u, "lagranderecre", "X", [], {"06"})
+        self.assertEqual({r["store_id"]: r["in_stock"] for r in w.store.db.execute("SELECT * FROM store_stock")}, {"t": 1, "n": 0})
+
+    def test_region_first_pass_and_missing_channel_are_silent(self):
+        from pokewatch.instore import StoreStock
+        db = os.path.join(tempfile.mkdtemp(), "t.db")
+        w = Watcher({"settings": {"database": db, "zones": [{"name": "06", "code_postal": "06000", "rayon_km": 45}],
+                                  "regions": True, "max_slow_zones_per_run": 13, "estimate_quantity": False},
+                     "alerts": {"zone_webhooks": {"idf": "hook-idf"}}, "watchlist": []})
+        for z in w.zones:
+            for p in z["points"]:
+                p["coords"] = (48.8, 2.3) if z["name"] == "idf" else (0.0, 0.0)
+        u = "https://www.lagranderecre.fr/x/y.html"
+        stock = {"paris": False}
+        def answer(url, lat, lon, **k):
+            if (lat, lon) != (48.8, 2.3):
+                return []
+            return [StoreStock("p", "PARIS", 3, stock["paris"], "x"), StoreStock("q", "VERSAILLES", 20, True, "x")]
+        sent = []
+        w.notifier.send = lambda m, zone=None: sent.append((zone, m))
+        with mock.patch("pokewatch.watcher.proximis_store_stock", side_effect=answer), mock.patch("builtins.print"):
+            w.store.add_product(u, "lagranderecre")
+            w.store.record_store_stock(u, "lagranderecre", "X", [], {"06"})  # produit déjà suivi (06)
+            w.select_zones()
+            w.check_stores(u, RETAILERS["lagranderecre"], "X")  # 1er passage idf : Versailles déjà en stock, silence
+            for z in w.zones:
+                if z["fresh"]:
+                    w.store.set_meta(f"zone_init_{z['name']}", "1")
+            for z in w.zones:
+                w.store.set_meta(f"zone_last_{z['name']}", "0")
+            w.select_zones()
+            stock["paris"] = True
+            w._store_last.clear()
+            w.check_stores(u, RETAILERS["lagranderecre"], "X")
+        self.assertEqual([z for z, _ in sent], ["idf"])
+        self.assertIn("PARIS", sent[0][1])
+        self.assertNotIn("VERSAILLES", sent[0][1])
 
     def test_pc_down_then_up(self):
         import io, json as _json, time as _t
@@ -280,6 +338,71 @@ class DailyTests(unittest.TestCase):
         parts = _chunks("\n".join(f"ligne {i} " + "x" * 50 for i in range(100)), 1900)
         self.assertTrue(len(parts) > 1 and all(len(p) <= 1900 for p in parts))
         self.assertEqual("\n".join(parts).count("ligne"), 100)
+
+
+class DiscordSetupTests(unittest.TestCase):
+    def fake(self):
+        st = {"roles": [{"id": "1", "name": "@everyone"}, {"id": "60", "name": "06"}],
+              "channels": [{"id": "c06", "name": "alertes-06", "type": 0}], "hooks": {}, "n": 100,
+              "onboarding": {"prompts": [{"id": "p1", "type": 0, "title": "Quelle est ta région ?", "single_select": False,
+                                          "required": True, "in_onboarding": True,
+                                          "options": [{"id": "o1", "title": "06 – Alpes-Maritimes", "role_ids": ["60"],
+                                                       "channel_ids": [], "emoji": {"name": "🌴"}}]}],
+                             "default_channel_ids": ["g"], "enabled": True, "mode": 0}, "calls": []}
+
+        def api(method, path, body=None):
+            st["calls"].append((method, path))
+            st["n"] += 1
+            nid = str(st["n"])
+            if path == "/users/@me":
+                return {"id": "bot"}
+            if path.endswith("/roles"):
+                if method == "GET":
+                    return list(st["roles"])
+                st["roles"].append({"id": nid, "name": body["name"]})
+                return st["roles"][-1]
+            if path.endswith("/channels"):
+                if method == "GET":
+                    return list(st["channels"])
+                st["channels"].append({"id": nid, **body})
+                return st["channels"][-1]
+            if path.endswith("/webhooks"):
+                cid = path.split("/")[2]
+                if method == "GET":
+                    return [st["hooks"][cid]] if cid in st["hooks"] else []
+                st["hooks"][cid] = {"id": nid, "token": "t" + nid, "name": body["name"]}
+                return st["hooks"][cid]
+            if path.endswith("/onboarding"):
+                if method == "GET":
+                    return json.loads(json.dumps(st["onboarding"]))
+                st["onboarding"] = body
+                return body
+            raise AssertionError(path)
+        return st, api
+
+    def test_creates_everything_once(self):
+        from pokewatch import discord_setup
+        st, api = self.fake()
+        hooks = discord_setup.setup(api, "1", log=lambda *a: None)
+        self.assertEqual(len(hooks), 14)
+        self.assertTrue(hooks["idf"].startswith("https://discord.com/api/webhooks/"))
+        names = {c["name"] for c in st["channels"]}
+        self.assertIn("alertes-ile-de-france", names)
+        self.assertIn("🗺️ Alertes régions", names)
+        chan = next(c for c in st["channels"] if c["name"] == "alertes-corse")
+        corse = next(r for r in st["roles"] if r["name"] == "Corse")
+        perms = {o["id"]: o for o in chan["permission_overwrites"]}
+        self.assertEqual(perms["1"]["deny"], str(1 << 10))  # @everyone ne voit pas
+        self.assertEqual(perms[corse["id"]]["allow"], str((1 << 10) | (1 << 16)))
+        opts = st["onboarding"]["prompts"][0]["options"]
+        self.assertEqual(len(opts), 14)  # 06 gardé + 13 régions
+        self.assertEqual(opts[0]["id"], "o1")
+        # Deuxième lancement : rien de neuf, mêmes webhooks
+        before = (len(st["roles"]), len(st["channels"]))
+        again = discord_setup.setup(api, "1", log=lambda *a: None)
+        self.assertEqual((len(st["roles"]), len(st["channels"])), before)
+        self.assertEqual(again, hooks)
+        self.assertEqual(len(st["onboarding"]["prompts"][0]["options"]), 14)
 
 
 class LeclercTests(unittest.TestCase):

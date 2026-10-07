@@ -133,7 +133,7 @@ class Store:
         )
         self.db.commit()
 
-    def record_store_stock(self, url: str, retailer: str, name: str | None, stocks) -> list:
+    def record_store_stock(self, url: str, retailer: str, name: str | None, stocks, zones: set | None = None) -> list:
         """Enregistre le stock magasin par magasin.
 
         Retourne les magasins dont la situation vient de s'améliorer (rupture -> arrivage,
@@ -170,6 +170,9 @@ class Store:
                      None if old is None else STORE_STATES[old_code], STORE_STATES[st.code]),
                 )
         for store_id, old in previous.items():
+            # `zones` : zones vérifiées cette fois-ci ; un magasin d'une autre zone garde son état.
+            if zones is not None and old["zone"] not in zones and old["zone"] is not None:
+                continue
             if store_id not in seen and old["in_stock"]:
                 self.db.execute(
                     "UPDATE store_stock SET in_stock = 0, label = 'En rupture', last_check = ?, last_change = ? "

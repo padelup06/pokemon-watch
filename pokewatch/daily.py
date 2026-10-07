@@ -19,7 +19,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from .fetch import FetchError
-from .instore import QUANTITY_RETAILERS, proximis_estimate_quantities
+from .instore import QUANTITY_RETAILERS
 from .retailers import retailer_for_url
 
 PARIS = ZoneInfo("Europe/Paris")
@@ -96,9 +96,10 @@ def greet_zones(watcher) -> None:
         key = f"zone_hello_{name}"
         if not hook or watcher.store.get_meta(key) == hook[-12:]:
             continue
+        where = ", ".join(f"{p['location']} {p['radius']} km" for p in z["points"])
         watcher.notifier.send(
-            f"✅ Salon connecté : ici arriveront les alertes **magasin** de la zone {name} "
-            f"({z['location']}, {z['radius']} km) et le récap du matin.\n"
+            f"✅ Salon connecté : ici arriveront les alertes **magasin** de la zone {z['label']} "
+            f"(autour de : {where}) et le récap du matin.\n"
             "Les alertes en ligne et les nouveautés restent dans le salon principal.",
             name,
         )
@@ -121,6 +122,8 @@ def maybe_send_recap(watcher, hour: int) -> None:
     if not (hour <= now.hour < hour + 3) or watcher.store.get_meta("recap_date") == today:
         return
     zones = watcher.zones if len(watcher.zones) > 1 else [None]
+    # Régions sans salon Discord : pas de récap (il atterrirait dans le salon principal).
+    zones = [z for z in zones if z is None or not (z["every"] and z["name"] not in watcher.notifier.zone_webhooks)]
     yesterday = json.loads(watcher.store.get_meta("recap_qty") or "{}")
     today_qty: dict[str, int] = {}
     for z in zones:  # plusieurs zones : un récap par zone, dans le salon de la zone
@@ -138,7 +141,7 @@ def build_recap(watcher, now: datetime, zone: dict | None = None, yesterday: dic
     save = yesterday is None
     yesterday = json.loads(store.get_meta("recap_qty") or "{}") if yesterday is None else yesterday
     today_qty = {} if today_qty is None else today_qty
-    where = f" — zone {zone['name']}" if zone else ""
+    where = f" — {zone['label']}" if zone else ""
     lines = [f"☀️ **Récap du matin**{where} — {_JOURS[now.weekday()]} {now.day} {_MOIS[now.month - 1]}"]
     nothing: list[str] = []
     no_page: dict[str, int] = {}
@@ -164,10 +167,7 @@ def build_recap(watcher, now: datetime, zone: dict | None = None, yesterday: dic
         qty = {}
         if stores and retailer.key in QUANTITY_RETAILERS:
             try:
-                z = zone or watcher.zones[0]
-                qty = proximis_estimate_quantities(
-                    url, *watcher.zone_coords(z), z["radius"], {s["store_id"] for s in stores}, ean=label_ean(label)
-                )
+                qty = watcher.estimate_zone(url, zone or watcher.zones[0], {s["store_id"] for s in stores}, ean=label_ean(label))
             except FetchError as e:
                 print(f"[récap] quantités non estimées pour {name} : {e}")
         lines.append(f"\n**{name}** — en ligne : {_ONLINE.get(status, status)}")

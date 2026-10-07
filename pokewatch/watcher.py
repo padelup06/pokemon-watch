@@ -138,14 +138,28 @@ class Watcher:
         self.location = s.get("code_postal") or s.get("ville")
         self.radius_km = int(s.get("rayon_km", 30))
         self._coords: tuple[float, float] | None = None
-        # Zones surveillées en magasin : [[settings.zones]] name / code_postal / rayon_km ;
-        # à défaut, une seule zone (code_postal / rayon_km).
+        # Zones surveillées en magasin : [[settings.zones]] name / code_postal / rayon_km (ou
+        # « points » : plusieurs cercles [code_postal, rayon]) / every_minutes. À défaut, une
+        # seule zone (code_postal / rayon_km).
         zones = s.get("zones") or ([{"name": "", "code_postal": self.location, "rayon_km": self.radius_km}] if self.location else [])
-        self.zones = [
-            {"name": str(z.get("name", "")), "location": str(z.get("code_postal") or z.get("ville")),
-             "radius": int(z.get("rayon_km", self.radius_km)), "coords": None}
-            for z in zones
-        ]
+        if s.get("regions"):  # les 13 régions de pokewatch/regions.py
+            from .regions import REGIONS
+
+            every = float(s.get("regions_every_minutes", 30))
+            zones = list(zones) + [
+                {"name": key, "label": label, "points": pts, "every_minutes": every}
+                for key, label, _salon, _emoji, pts in REGIONS
+            ]
+        self.zones = []
+        for z in zones:
+            pts = z.get("points") or [(z.get("code_postal") or z.get("ville"), z.get("rayon_km", self.radius_km))]
+            self.zones.append({
+                "name": str(z.get("name", "")), "label": z.get("label") or str(z.get("name", "")),
+                "points": [{"location": str(cp), "radius": int(r), "coords": None} for cp, r in pts],
+                "every": float(z.get("every_minutes", 0)), "active": True, "fresh": False,
+            })
+        # Zones « lentes » (every_minutes) vérifiées à tour de rôle : au plus N par passage.
+        self.max_slow_zones = int(s.get("max_slow_zones_per_run", 3))
         self.store_interval = float(s.get("store_check_seconds", 0))
         self.store_backoff = float(s.get("store_error_pause_seconds", 300))
         self._store_last: dict[str, float] = {}
@@ -295,16 +309,18 @@ class Watcher:
         self._store_last[url] = now
         try:
             stocks, seen = [], set()
-            for z in self.zones:
-                if retailer.key == "cultura":
-                    found = cultura_store_stock(self.fetcher, url, z["location"], z["radius"])
-                else:
-                    found = proximis_store_stock(url, *self.zone_coords(z), radius_km=z["radius"], html=html, ean=ean)
-                for st in found:  # un magasin à cheval sur deux zones reste dans la première
-                    if st.store_id not in seen:
-                        seen.add(st.store_id)
-                        st.zone = z["name"]
-                        stocks.append(st)
+            active = [z for z in self.zones if z["active"]]
+            for z in active:
+                for pt in z["points"]:
+                    if retailer.key == "cultura":
+                        found = cultura_store_stock(self.fetcher, url, pt["location"], pt["radius"])
+                    else:
+                        found = proximis_store_stock(url, *self.point_coords(pt), radius_km=pt["radius"], html=html, ean=ean)
+                    for st in found:  # un magasin vu par deux cercles ou zones reste au premier
+                        if st.store_id not in seen:
+                            seen.add(st.store_id)
+                            st.zone = z["name"]
+                            stocks.append(st)
         except FetchError as e:
             # Pause doublée à chaque échec consécutif (5, 10, 20, 40 min, puis 1 h) : un serveur
             # qui refuse une connexion (502 en série chez l'utilisateur) se débloque mieux sans
@@ -317,20 +333,52 @@ class Watcher:
             return
         if self._store_fails.pop(retailer.key, 0):
             print(f"[{retailer.name}] magasins : de nouveau accessibles", flush=True)
-        newly = self.store.record_store_stock(url, retailer.key, name, stocks)
+        newly = self.store.record_store_stock(url, retailer.key, name, stocks, {z["name"] for z in active})
         in_stock = sum(1 for s in stocks if s.in_stock)
         incoming = sum(1 for s in stocks if s.incoming and not s.in_stock)
-        print(f"    magasins ({', '.join(z['name'] or z['location'] for z in self.zones)}) : "
+        print(f"    magasins ({', '.join(z['name'] or z['points'][0]['location'] for z in active)}) : "
               f"{in_stock}/{len(stocks)} en stock, {incoming} en arrivage")
+        newly = [st for st in newly if not self.zone_silent(st.zone)]
         if newly:
             self.add_quantities(url, retailer, newly, html, ean)
             for zone in dict.fromkeys(st.zone for st in newly):  # une alerte par zone, dans son salon
                 self.notifier.send(format_store_alert(retailer.name, name, url, [st for st in newly if st.zone == zone]), zone)
 
-    def zone_coords(self, z: dict) -> tuple[float, float]:
-        if z["coords"] is None:
-            z["coords"] = geocode(z["location"])
-        return z["coords"]
+    def point_coords(self, pt: dict) -> tuple[float, float]:
+        if pt["coords"] is None:
+            pt["coords"] = geocode(pt["location"])
+        return pt["coords"]
+
+    def estimate_zone(self, url: str, z: dict, ids: set, html: str | None = None, ean: str | None = None) -> dict:
+        """Quantités estimées pour les magasins `ids` d'une zone (cercle par cercle)."""
+        qty: dict = {}
+        for pt in z["points"]:
+            rest = ids - qty.keys()
+            if not rest:
+                break
+            qty.update(proximis_estimate_quantities(url, *self.point_coords(pt), pt["radius"], rest, html=html, ean=ean))
+        return qty
+
+    def select_zones(self) -> None:
+        """Avant un passage : zones rapides toujours, zones lentes à tour de rôle (les plus en retard)."""
+        now = time.time()
+        due = []
+        for z in self.zones:
+            if not z["every"]:
+                z["active"] = True
+                continue
+            last = float(self.store.get_meta(f"zone_last_{z['name']}") or 0)
+            z["active"] = False
+            if now - last >= z["every"] * 60:
+                due.append((last, z))
+        for _, z in sorted(due, key=lambda t: t[0])[: self.max_slow_zones]:
+            z["active"] = True
+            self.store.set_meta(f"zone_last_{z['name']}", str(now))
+        for z in self.zones:  # premier passage d'une zone : on note l'existant sans alerter
+            z["fresh"] = bool(z["every"]) and z["active"] and self.store.get_meta(f"zone_init_{z['name']}") is None
+        slow = [z["name"] for z in self.zones if z["every"] and z["active"]]
+        if slow:
+            print(f"Zones vérifiées ce passage en plus des zones rapides : {', '.join(slow)}", flush=True)
 
     def add_quantities(self, url: str, retailer, stores, html: str | None, ean: str | None = None) -> None:
         """Nombre estimé d'exemplaires pour les magasins qui viennent de passer en stock."""
@@ -342,7 +390,7 @@ class Watcher:
             for z in self.zones:
                 ids = {s.store_id for s in stores if s.in_stock and s.zone == z["name"]}
                 if ids:
-                    qty.update(proximis_estimate_quantities(url, *self.zone_coords(z), z["radius"], ids, html=html, ean=ean))
+                    qty.update(self.estimate_zone(url, z, ids, html=html, ean=ean))
         except FetchError as e:
             print(f"[{retailer.name}] quantités non estimées : {e}", flush=True)
         for s in stores:
@@ -360,7 +408,23 @@ class Watcher:
             self.check(p["url"], p.get("label"))
             self._pause()
 
+    def zone_silent(self, name: str) -> bool:
+        """Pas d'alerte pour cette zone : premier passage, ou région sans salon Discord."""
+        z = next((z for z in self.zones if z["name"] == name), None)
+        if z is None:
+            return False
+        return z["fresh"] or (bool(z["every"]) and name not in self.notifier.zone_webhooks)
+
     def run_once(self) -> None:
+        self.select_zones()
+        try:
+            self._run_once()
+        finally:
+            for z in self.zones:
+                if z["fresh"]:
+                    self.store.set_meta(f"zone_init_{z['name']}", "1")
+
+    def _run_once(self) -> None:
         self.discover()
         configured = self._products()
         skip = {p["url"] for p in self.cfg["watchlist"]} if self.exclude_watchlist else set()

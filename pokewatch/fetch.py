@@ -6,6 +6,7 @@ from __future__ import annotations
 import gzip
 import json
 import random
+import re
 import urllib.error
 import urllib.request
 import zlib
@@ -120,6 +121,12 @@ class BrowserFetcher:
                 page.wait_for_load_state("networkidle", timeout=8000)
             except Exception:
                 pass  # certaines pages ne sont jamais "idle" (trackers) : on prend ce qu'on a
+            # Vérification « Un instant… » (Cloudflare) : dans une vraie fenêtre, elle se valide
+            # généralement seule en quelques secondes. On lui laisse jusqu'à 20 s.
+            for _ in range(20):
+                if not re.search(r"un instant|just a moment", page.title() or "", re.I):
+                    break
+                page.wait_for_timeout(1000)
             return page.content()
         except Exception as e:
             raise FetchError(str(e)) from e

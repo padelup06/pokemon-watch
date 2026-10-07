@@ -421,6 +421,21 @@ class FlappingTests(unittest.TestCase):
         self.assertEqual(len(sent), 1)  # une seule alerte « en stock », pas de seconde après la page illisible
 
 
+class RateLimitTests(unittest.TestCase):
+    def test_429_pauses_retailer(self):
+        from pokewatch.fetch import FetchError
+        db = os.path.join(tempfile.mkdtemp(), "t.db")
+        w = Watcher({"settings": {"database": db}, "alerts": {}, "watchlist": []})
+        calls = []
+        def boom(url):
+            calls.append(url)
+            raise FetchError("HTTP 429")
+        with mock.patch("pokewatch.watcher.resolve_url", side_effect=boom), mock.patch("builtins.print"):
+            w.check("https://www.e.leclerc/recherche?q=0196214147225")
+            w.check("https://www.e.leclerc/recherche?q=0196214147102")
+        self.assertEqual(len(calls), 1)  # après le 429, Leclerc est laissé tranquille
+
+
 class LeclercTests(unittest.TestCase):
     def test_marketplace_offers_ignored(self):
         from pokewatch.retailers import RETAILERS

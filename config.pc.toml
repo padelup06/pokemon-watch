@@ -28,7 +28,7 @@ rayon_km = 45
 zones = [{ name = "06", code_postal = "06000", rayon_km = 45 }]  # alertes magasin -> salon #alertes-06 (webhook-06.txt)
 store_check_seconds = 120        # stock magasin : au plus toutes les 2 min par produit (l'API limite)
 store_error_pause_seconds = 300  # après une erreur de l'API magasin : pause de 5 min pour cette enseigne
-ean_search_seconds = 300         # recherches par code-barres (Cultura, Leclerc) : au plus toutes les 5 min
+ean_search_seconds = 300         # recherches par code-barres (Cultura, Leclerc…) : au plus toutes les 5 min ; pause 15 min après un HTTP 429
 
 heartbeat = true                 # signale à GitHub que le PC tourne (alerte Discord s'il s'arrête)
 

@@ -165,6 +165,7 @@ class Watcher:
         self._store_last: dict[str, float] = {}
         self._store_pause: dict[str, float] = {}
         self._store_fails: dict[str, int] = {}  # erreurs consécutives par enseigne
+        self._rate_pause: dict[str, float] = {}  # enseigne -> fin de pause après un HTTP 429
         # Recherches par code-barres (pages lourdes, produit pas encore en ligne) : espacées.
         self.ean_search_interval = float(s.get("ean_search_seconds", 0))
         self._ean_last: dict[str, float] = {}
@@ -210,10 +211,20 @@ class Watcher:
                 )
                 self._pause()
 
+    def _too_many(self, retailer, error: Exception) -> bool:
+        """HTTP 429 (« trop de demandes ») : on laisse l'enseigne tranquille 15 min."""
+        if "429" not in str(error):
+            return False
+        self._rate_pause[retailer.key] = time.time() + 900
+        print(f"[{retailer.name}] trop de demandes (HTTP 429) : pause de 15 min pour cette enseigne", flush=True)
+        return True
+
     def check(self, url: str, label: str | None = None) -> None:
         retailer = retailer_for_url(url)
         if retailer.needs_browser and self.fetcher.browser_mode == "never":
             return  # ex. Cultura sur GitHub : bloqué sans navigateur, laissé au PC
+        if time.time() < self._rate_pause.get(retailer.key, 0):
+            return
         self.store.add_product(url, retailer.key, label)
         if ean_search(url):
             return self.check_ean_search(url, label)
@@ -221,7 +232,8 @@ class Watcher:
             html = self.fetcher.get(url, retailer.needs_browser)
         except FetchError as e:
             self.store.record_error(url, retailer.key, str(e))
-            print(f"[{retailer.name}] ⚠ {e} : {url}")
+            if not self._too_many(retailer, e):
+                print(f"[{retailer.name}] ⚠ {e} : {url}")
             return
         if retailer.use_keywords:
             av = parse_availability(html, retailer.in_stock_keywords, retailer.out_of_stock_keywords, retailer.own_seller)
@@ -271,7 +283,8 @@ class Watcher:
             try:
                 final = resolve_url(f"https://www.e.leclerc/fp/{ean}")
             except FetchError as e:
-                print(f"[{retailer.name}] ⚠ recherche {ean} : {e}")
+                if not self._too_many(retailer, e):
+                    print(f"[{retailer.name}] ⚠ recherche {ean} : {e}")
                 return
             return self._ean_result(url, retailer, ean, label, final.split("?")[0] if final else None)
         try:

@@ -240,7 +240,9 @@ class Watcher:
         # qu'une fiche dont la page contient bien le code-barres recherché.
         for link in extract_product_links(html, url)[:4]:
             try:
-                if ean in self.fetcher.get(link, retailer.needs_browser):
+                # Cdiscount écrit l'EAN sans le 0 de tête (…/f-120791604-pok196214141964.html).
+                page = self.fetcher.get(link, retailer.needs_browser)
+                if ean in page or (ean.startswith("0") and ean.lstrip("0") in page):
                     found = link
                     break
             except FetchError:

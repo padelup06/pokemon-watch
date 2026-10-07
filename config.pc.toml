@@ -25,6 +25,7 @@ track_discovered = false         # ne surveille que vos produits
 # La Grande Récré Nice, Cagnes, Cannes)
 code_postal = "06000"
 rayon_km = 45
+zones = [{ name = "06", code_postal = "06000", rayon_km = 45 }]  # alertes magasin -> salon #alertes-06 (webhook-06.txt)
 store_check_seconds = 120        # stock magasin : au plus toutes les 2 min par produit (l'API limite)
 store_error_pause_seconds = 300  # après une erreur de l'API magasin : pause de 5 min pour cette enseigne
 ean_search_seconds = 300         # recherches par code-barres (Cultura, Leclerc) : au plus toutes les 5 min

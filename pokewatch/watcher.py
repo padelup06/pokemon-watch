@@ -284,7 +284,9 @@ class Watcher:
         # old == "" : premier relevé du produit, on enregistre sans alerter.
         if old and should_alert(old, av.status):
             self.notifier.send(format_alert("stock", retailer.name, name, url, av.status, av.price), image=av.image)
-        if retailer.key in PROXIMIS_RETAILERS:
+        if retailer.key in PROXIMIS_RETAILERS and av.status != UNKNOWN:
+            # Pas sur une page catégorie (fiche dépubliée, suivi par code-barres) : ses
+            # réassorts sont ceux d'autres produits.
             restock = self.store.set_restock(url, proximis_restock(html))
             if restock and old:
                 self.notifier.send(format_restock_alert(retailer.name, name, url, restock), image=av.image)

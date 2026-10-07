@@ -13,6 +13,8 @@ https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-mini-tin-019621414629
 https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-2-boosters-evoli-0196214152311.html | 30e anniv. — 2 boosters Évoli
 # Fiche dépubliée le 5 octobre (redirige vers la page Pokémon) : alerte dès qu'elle revient en vente
 https://www.joueclub.fr/pokemon/pokemon-bundle-6-boosters-0196214145221.html | Bundle 6 boosters
+# Lot de 2 tripacks : pas encore de fiche JouéClub, mais leurs magasins le connaissent (stock magasin par code-barres)
+https://www.joueclub.fr/pokemon/?ean=0196214144972 | 30e anniv. — Lot de 2 tripacks (JouéClub) — EAN 0196214144972
 
 # La Grande Récré — 30e anniversaire
 # Le 5 octobre 2026 : Mini Tin en rupture en ligne mais EN STOCK à Nice et Cagnes ; les 5 autres
@@ -24,6 +26,8 @@ https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-4-bo
 https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-collection-poster-pokemon-30e-anniversaire.html | 30e anniv. — Coffret Collection Poster (LGR) — EAN 0196214147225
 https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/2-boosters-evoli-pokemon-30e-anniversaire.html | 30e anniv. — 2 boosters Évoli (LGR) — EAN 0196214152311
 https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-dresseur-d-elite-pokemon-30e-anniversaire.html | 30e anniv. — Coffret Dresseur d'Élite (LGR) — EAN 0196214144835
+# Lot de 2 tripacks : pas encore référencé chez La Grande Récré (stock magasin dès qu'il le sera)
+https://www.lagranderecre.fr/cartes-a-collectionner/?ean=0196214144972 | 30e anniv. — Lot de 2 tripacks (LGR) — EAN 0196214144972
 
 # Cultura — produits sans fiche en ligne : recherche par code-barres (EAN).
 # Alerte « fiche en ligne » dès que Cultura publie la fiche, puis suivi du stock (PC uniquement).
@@ -34,6 +38,7 @@ https://www.cultura.com/search/results?search_query=0196214145221 | 30e anniv. �
 https://www.cultura.com/search/results?search_query=0196214146297 | 30e anniv. — Mini Tin (Cultura)
 https://www.cultura.com/search/results?search_query=0196214152311 | 30e anniv. — 2 boosters Évoli (Cultura)
 https://www.cultura.com/search/results?search_query=0196214144835 | 30e anniv. — Coffret Dresseur d'Élite (Cultura)
+https://www.cultura.com/search/results?search_query=0196214144972 | 30e anniv. — Lot de 2 tripacks (Cultura)
 
 # E.Leclerc — recherche par code-barres : alerte « fiche en ligne » dès que Leclerc publie la
 # fiche, puis suivi du stock en ligne vendu par Leclerc (retrait gratuit en magasin).
@@ -44,6 +49,7 @@ https://www.e.leclerc/recherche?q=0196214145221 | 30e anniv. — Bundle 6 booste
 https://www.e.leclerc/recherche?q=0196214146297 | 30e anniv. — Mini Tin (Leclerc)
 https://www.e.leclerc/recherche?q=0196214152311 | 30e anniv. — 2 boosters Évoli (Leclerc)
 https://www.e.leclerc/recherche?q=0196214144835 | 30e anniv. — Coffret Dresseur d'Élite (Leclerc)
+https://www.e.leclerc/recherche?q=0196214144972 | 30e anniv. — Lot de 2 tripacks (Leclerc)
 
 # Carrefour — recherche par code-barres (PC uniquement : site protégé, fenêtre de navigateur).
 https://www.carrefour.fr/s?q=0196214147225 | 30e anniv. — Coffret Collection Poster (Carrefour)
@@ -53,6 +59,7 @@ https://www.carrefour.fr/s?q=0196214145221 | 30e anniv. — Bundle 6 boosters (C
 https://www.carrefour.fr/s?q=0196214146297 | 30e anniv. — Mini Tin (Carrefour)
 https://www.carrefour.fr/s?q=0196214152311 | 30e anniv. — 2 boosters Évoli (Carrefour)
 https://www.carrefour.fr/s?q=0196214144835 | 30e anniv. — Coffret Dresseur d'Élite (Carrefour)
+https://www.carrefour.fr/p/tripack-pokemon-collection-autocollant-reajustable-30th-celebration-0196214144972 | 30e anniv. — Lot de 2 tripacks (Carrefour)
 
 # Cdiscount — recherche par code-barres (PC uniquement : site protégé, fenêtre de navigateur).
 https://www.cdiscount.com/juniors/jeux-de-societe-cartes/pokemon-30-ans-coffret-poster-30eme-anniversaire/f-120791604-pok196214147225.html | 30e anniv. — Coffret Collection Poster (Cdiscount)
@@ -62,4 +69,4 @@ https://www.cdiscount.com/search/10/0196214145221.html | 30e anniv. — Bundle 6
 https://www.cdiscount.com/juniors/jeux-de-societe-cartes/pokemon-30eme-anniversaire-mini-tin-10-visuel/f-120791604-pok196214146297.html | 30e anniv. — Mini Tin (Cdiscount)
 https://www.cdiscount.com/juniors/jeux-de-societe-cartes/pokemon-duopack-2-boosters-30e-anniversaire/f-120791604-pok196214152311.html | 30e anniv. — 2 boosters Évoli (Cdiscount)
 https://www.cdiscount.com/juniors/jeux-de-societe-cartes/pokemon-etb-coffret-dresseur-d-elite-30e-anniv/f-120791604-pok196214144835.html | 30e anniv. — Coffret Dresseur d'Élite (Cdiscount)
-https://www.cdiscount.com/juniors/jeux-de-societe-cartes/30e-anniversaire-lot-de-2-tripacks-collection-au/f-120791604-pok196214144972.html | 30e anniv. — Lot de 2 tripacks (Cdiscount) — EAN 0196214144972
+https://www.cdiscount.com/juniors/jeux-de-societe-cartes/30e-anniversaire-lot-de-2-tripacks-collection-au/f-120791604-pok196214144972.html | 30e anniv. — Lot de 2 tripacks (Cdiscount)

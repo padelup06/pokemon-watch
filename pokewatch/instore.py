@@ -329,7 +329,13 @@ def cultura_nearby_stores(fetcher, location: str, radius_km: int) -> list[dict]:
 
 
 def cultura_store_stock(fetcher, product_url: str, location: str, radius_km: int = 30) -> list[StoreStock]:
-    stores = cultura_nearby_stores(fetcher, location, radius_km)
+    return cultura_store_stock_multi(fetcher, product_url, [(location, radius_km)])[0]
+
+
+def cultura_store_stock_multi(fetcher, product_url: str, points: list[tuple[str, int]]) -> list[list[StoreStock]]:
+    """Stock Cultura pour plusieurs cercles (code postal, rayon). L'API donne la disponibilité du
+    produit dans TOUS les magasins de France en une seule demande : un seul appel produit, quel
+    que soit le nombre de cercles (les listes de magasins, elles, sont gardées en mémoire)."""
     q = (
         '{products(filter:{url_key:{eq:"%s"}},getDisabledProduct:1,resolverLight:1)'
         "{items{stock_item_extra{offer{front_availability,seller_code,qty}}}}}" % cultura_url_key(product_url)
@@ -342,6 +348,10 @@ def cultura_store_stock(fetcher, product_url: str, location: str, radius_km: int
         o.get("seller_code"): (o.get("front_availability") or "")
         for o in ((items[0].get("stock_item_extra") or {}).get("offer") or [])
     }
+    return [_cultura_result(cultura_nearby_stores(fetcher, loc, r), offers) for loc, r in points]
+
+
+def _cultura_result(stores: list[dict], offers: dict) -> list[StoreStock]:
     result = []
     for st in stores:
         avail = offers.get(st["seller_code"], "")

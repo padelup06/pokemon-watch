@@ -312,6 +312,23 @@ class DailyTests(unittest.TestCase):
         self.assertIn("PARIS", sent[0][1])
         self.assertNotIn("VERSAILLES", sent[0][1])
 
+    def test_pc_regions_only_for_cultura(self):
+        db = os.path.join(tempfile.mkdtemp(), "t.db")
+        w = Watcher({"settings": {"database": db, "zones": [{"name": "06", "code_postal": "06000", "rayon_km": 45}],
+                                  "regions": True, "regions_retailers": ["cultura"]}, "alerts": {}, "watchlist": []})
+        for z in w.zones:
+            for p in z["points"]:
+                p["coords"] = (0.0, 0.0)
+        calls = []
+        cult = []
+        with mock.patch("pokewatch.watcher.proximis_store_stock", side_effect=lambda *a, **k: calls.append(1) or []), \
+             mock.patch("pokewatch.watcher.cultura_store_stock_multi", side_effect=lambda f, u, pts: cult.append(len(pts)) or [[] for _ in pts]), \
+             mock.patch("builtins.print"):
+            w.check_stores("https://www.lagranderecre.fr/x/y.html", RETAILERS["lagranderecre"], "X")
+            w.check_stores("https://www.cultura.com/p-x-1.html", RETAILERS["cultura"], "X")
+        self.assertEqual(len(calls), 1)  # La Grande Récré : le 06 seulement sur le PC
+        self.assertEqual(cult, [1 + sum(len(r[4]) for r in __import__("pokewatch.regions").regions.REGIONS)])  # Cultura : partout
+
     def test_pc_down_then_up(self):
         import io, json as _json, time as _t
         from pokewatch import daily
@@ -607,10 +624,15 @@ class CulturaTests(unittest.TestCase):
         stocks = instore.cultura_store_stock(FakeFetcher(), url, "06400", radius_km=100)
         self.assertEqual([(s.name, s.in_stock) for s in stocks], [
             ("Cultura Mandelieu", False), ("Cultura Nice", False), ("Cultura Puget", False), ("Cultura Toulon", True)])
-        self.assertIn('url_key:{eq:"booster-pokemon-m6-storm-emeralda-import-japon-13319873"}', calls[1])
+        self.assertIn('url_key:{eq:"booster-pokemon-m6-storm-emeralda-import-japon-13319873"}', calls[0])
         # liste des magasins mise en cache : un seul appel "stores" pour deux produits
         instore.cultura_store_stock(FakeFetcher(), url, "06400", radius_km=100)
         self.assertEqual(sum("stores(" in c for c in calls), 1)
+        # Plusieurs régions : un seul appel « produit » pour tous les cercles
+        before = sum("products(" in c for c in calls)
+        multi = instore.cultura_store_stock_multi(FakeFetcher(), url, [("06400", 100), ("06400", 10)])
+        self.assertEqual(sum("products(" in c for c in calls) - before, 1)
+        self.assertEqual([len(m) for m in multi], [4, 1])
         instore._cultura_stores_cache.clear()
         near = instore.cultura_store_stock(FakeFetcher(), url, "06400", radius_km=45)
         self.assertEqual([s.name for s in near], ["Cultura Mandelieu", "Cultura Nice", "Cultura Puget"])

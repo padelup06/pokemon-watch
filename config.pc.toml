@@ -26,6 +26,11 @@ track_discovered = false         # ne surveille que vos produits
 code_postal = "06000"
 rayon_km = 45
 zones = [{ name = "06", code_postal = "06000", rayon_km = 45 }]  # alertes magasin -> salon #alertes-06 (webhook-06.txt)
+# Cultura dans les 13 régions (une seule demande donne tous les magasins de France) ; JouéClub
+# et La Grande Récré restent sur le 06 ici, GitHub couvre leurs régions. Salons : webhooks-regions.txt.
+regions = true
+regions_retailers = ["cultura"]
+zone_webhooks_file = "webhooks-regions.txt"
 store_check_seconds = 600        # stock magasin : toutes les 10 min par produit (priorité au stock en ligne ; GitHub le relève aussi)
 store_error_pause_seconds = 300  # après une erreur de l'API magasin : pause de 5 min pour cette enseigne
 ean_search_seconds = 300         # recherches par code-barres (Cultura, Leclerc…) : au plus toutes les 5 min ; pause 15 min après un HTTP 429

@@ -17,6 +17,7 @@ from .instore import (
     QUANTITY_RETAILERS,
     STORE_RETAILERS,
     cultura_store_stock,
+    cultura_store_stock_multi,
     geocode,
     proximis_estimate_quantities,
     proximis_restock,
@@ -44,7 +45,15 @@ def load_config(path: str) -> dict:
         if os.environ.get(env):
             alerts[key] = os.environ[env]
     # Secret GitHub POKEWATCH_ZONE_WEBHOOKS : une ligne par zone, « 06=https://discord.com/api/webhooks/… »
-    for line in os.environ.get("POKEWATCH_ZONE_WEBHOOKS", "").splitlines():
+    # (sur le PC : fichier webhooks-regions.txt écrit par creer-salons-discord.bat, s'il existe).
+    zone_lines = os.environ.get("POKEWATCH_ZONE_WEBHOOKS", "")
+    zfile = cfg.get("settings", {}).get("zone_webhooks_file")
+    if zfile:
+        zpath = os.path.join(os.path.dirname(os.path.abspath(config_path)), zfile)
+        if os.path.exists(zpath):
+            with open(zpath, encoding="utf-8-sig") as f:
+                zone_lines = f.read() + "\n" + zone_lines
+    for line in zone_lines.splitlines():
         if "=" in line:
             zone, hook = line.split("=", 1)
             alerts.setdefault("zone_webhooks", {})[zone.strip()] = hook.strip()
@@ -158,6 +167,8 @@ class Watcher:
                 "points": [{"location": str(cp), "radius": int(r), "coords": None} for cp, r in pts],
                 "every": float(z.get("every_minutes", 0)), "active": True, "fresh": False,
             })
+        rr = s.get("regions_retailers")
+        self.region_retailers = set(rr) if rr is not None else None
         # Zones « lentes » (every_minutes) vérifiées à tour de rôle : au plus N par passage.
         self.max_slow_zones = int(s.get("max_slow_zones_per_run", 3))
         self.store_interval = float(s.get("store_check_seconds", 0))
@@ -335,18 +346,22 @@ class Watcher:
         self._store_last[url] = now
         try:
             stocks, seen = [], set()
-            active = [z for z in self.zones if z["active"]]
-            for z in active:
-                for pt in z["points"]:
-                    if retailer.key == "cultura":
-                        found = cultura_store_stock(self.fetcher, url, pt["location"], pt["radius"])
-                    else:
-                        found = proximis_store_stock(url, *self.point_coords(pt), radius_km=pt["radius"], html=html, ean=ean)
-                    for st in found:  # un magasin vu par deux cercles ou zones reste au premier
-                        if st.store_id not in seen:
-                            seen.add(st.store_id)
-                            st.zone = z["name"]
-                            stocks.append(st)
+            # Régions (zones lentes) : seulement pour les enseignes de regions_retailers (PC : Cultura,
+            # GitHub : JouéClub et La Grande Récré).
+            active = [z for z in self.zones if z["active"] and (not z["every"] or self.region_retailers is None
+                                                                  or retailer.key in self.region_retailers)]
+            pairs = [(z, pt) for z in active for pt in z["points"]]
+            if retailer.key == "cultura":
+                lists = cultura_store_stock_multi(self.fetcher, url, [(pt["location"], pt["radius"]) for _, pt in pairs])
+            else:
+                lists = [proximis_store_stock(url, *self.point_coords(pt), radius_km=pt["radius"], html=html, ean=ean)
+                         for _, pt in pairs]
+            for (z, _pt), found in zip(pairs, lists):
+                for st in found:  # un magasin vu par deux cercles ou zones reste au premier
+                    if st.store_id not in seen:
+                        seen.add(st.store_id)
+                        st.zone = z["name"]
+                        stocks.append(st)
         except FetchError as e:
             # Pause doublée à chaque échec consécutif (5, 10, 20, 40 min, puis 1 h) : un serveur
             # qui refuse une connexion (502 en série chez l'utilisateur) se débloque mieux sans
@@ -364,7 +379,11 @@ class Watcher:
         incoming = sum(1 for s in stocks if s.incoming and not s.in_stock)
         print(f"    magasins ({', '.join(z['name'] or z['points'][0]['location'] for z in active)}) : "
               f"{in_stock}/{len(stocks)} en stock, {incoming} en arrivage")
-        newly = [st for st in newly if not self.zone_silent(st.zone)]
+        # Premier relevé de ce produit dans une région : on note l'existant sans alerter.
+        first = {z["name"] for z in active if z["every"] and self.store.get_meta(f"zs|{url}|{z['name']}") is None}
+        for name in first:
+            self.store.set_meta(f"zs|{url}|{name}", "1")
+        newly = [st for st in newly if not self.zone_silent(st.zone) and st.zone not in first]
         if newly:
             self.add_quantities(url, retailer, newly, html, ean)
             for zone in dict.fromkeys(st.zone for st in newly):  # une alerte par zone, dans son salon

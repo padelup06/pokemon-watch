@@ -334,7 +334,13 @@ class Watcher:
             found = final.split("?")[0].split("#")[0]
         # La page de résultats peut proposer d'autres produits (suggestions) : on ne retient
         # qu'une fiche dont la page contient bien le code-barres recherché.
-        for link in [] if found else extract_product_links(html, url)[:4]:
+        links = extract_product_links(html, url)
+        # Un lien dont l'adresse contient le code-barres est forcément la bonne fiche (Cdiscount :
+        # …/f-120791604-pok196214146297.html), même loin derrière les produits sponsorisés.
+        direct = next((l for l in links if ean in l or (len(short) >= 12 and short in l)), None)
+        if not found and direct:
+            found = direct
+        for link in [] if found else links[:4]:
             try:
                 # Cdiscount écrit l'EAN sans le 0 de tête (…/f-120791604-pok196214141964.html).
                 page = self.fetcher.get(link, retailer.needs_browser)

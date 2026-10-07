@@ -496,6 +496,20 @@ class DirectHitTests(unittest.TestCase):
         self.assertEqual(w.store.get(search)["found_url"], fiche)
 
 
+class EanInLinkTests(unittest.TestCase):
+    def test_link_containing_ean_found_behind_sponsored(self):
+        db = os.path.join(tempfile.mkdtemp(), "t.db")
+        w = Watcher({"settings": {"database": db, "min_delay_seconds": 0, "max_delay_seconds": 0}, "alerts": {}, "watchlist": []})
+        search = "https://www.cdiscount.com/search/10/0196214146297.html"
+        sponsored = "".join(f'<a href="/juniors/cartes/sponso-{i}/f-1220618-abc{i}.html">x</a>' for i in range(6))
+        fiche = "https://www.cdiscount.com/juniors/jeux-de-societe-cartes/pokemon-30eme-anniversaire-mini-tin-10-visuel/f-120791604-pok196214146297.html"
+        pages = {search: sponsored + f'<a href="{fiche}?sw=abc#cm">Mini Tin</a>', fiche: jsonld_page("OutOfStock")}
+        w.fetcher.get = lambda url, needs_browser=False: pages.get(url, "<html></html>")
+        with mock.patch("builtins.print"):
+            w.check(search, "Mini Tin (Cdiscount)")
+        self.assertEqual(w.store.get(search)["found_url"], fiche)
+
+
 class LeclercTests(unittest.TestCase):
     def test_marketplace_offers_ignored(self):
         from pokewatch.retailers import RETAILERS

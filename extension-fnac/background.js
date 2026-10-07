@@ -5,7 +5,8 @@ importScripts("extract.js");
 
 const DEFAULTS = {
   webhook: "",
-  webhook06: "", // salon #alertes-06 : alertes magasin des Fnac du 06 et de Monaco (facultatif)
+  webhook06: "", // ancien réglage : salon #alertes-06 seul
+  zoneHooks: "", // contenu de webhooks-regions.txt : « 06=https://… », « paca=https://… »…
   intervalMinutes: 3,
   products: [
     "https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Dresseur-d-Elite/a23200296/w-4",
@@ -41,9 +42,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg === "test-discord") {
     (async () => {
       const main = await sendDiscord("✅ Test Pokémon Watch — Fnac : les alertes en ligne arrivent bien ici.");
-      const { webhook06 } = await settings();
-      const z = webhook06 ? await sendDiscord("✅ Test Pokémon Watch — Fnac : les alertes magasin du 06 arrivent bien ici.", true) : "non configuré";
-      return `Salon principal : ${main} — salon #alertes-06 : ${z}`;
+      const { webhook06, zoneHooks } = await settings();
+      const hooks = parseZoneHooks(zoneHooks);
+      if (webhook06 && !hooks["06"]) hooks["06"] = webhook06;
+      const res = [`Salon principal : ${main}`];
+      for (const zone of ["06", "paca"]) {
+        res.push(`salon ${zone} : ${hooks[zone] ? await sendDiscord(`✅ Test Pokémon Watch — Fnac : les alertes magasin (${zone}) arrivent bien ici.`, zone) : "non configuré"}`);
+      }
+      return res.join(" — ");
     })().then(reply, (e) => reply(`Erreur : ${e}`));
   }
   return true;
@@ -76,12 +82,29 @@ async function readProduct(url) {
   }
 }
 
-// Fnac des Alpes-Maritimes (et Monaco) : leurs alertes magasin vont dans le salon de région.
-const IN_06 = /cannes|cagnes|nice|monaco|antibes|grasse|menton|mandelieu|cap 3000|saint-laurent/i;
+// Salon de région d'une Fnac (alertes magasin). Les Fnac vues depuis Cannes vont du 06 à Marseille.
+const ZONE_OF = [
+  ["06", /cannes|cagnes|nice|monaco|antibes|grasse|menton|mandelieu|cap 3000|saint-laurent/i],
+  ["paca", /toulon|la garde|marseille|aix|aubagne|avignon|fr[ée]jus|draguignan|hy[èe]res|plan de campagne|vitrolles|martigues|salon-de-provence|arles|gap/i],
+];
+function zoneOf(storeName) {
+  const z = ZONE_OF.find(([, re]) => re.test(storeName || ""));
+  return z ? z[0] : null;
+}
+function parseZoneHooks(text) {
+  const hooks = {};
+  for (const line of (text || "").split(/\r?\n/)) {
+    const m = line.match(/^\s*([a-z0-9]+)\s*=\s*(https:\/\/\S+)/i);
+    if (m) hooks[m[1].toLowerCase()] = m[2];
+  }
+  return hooks;
+}
 
-async function sendDiscord(content, salon06 = false) {
-  const { webhook, webhook06 } = await settings();
-  const hook = (salon06 && webhook06) || webhook;
+async function sendDiscord(content, zone = null) {
+  const { webhook, webhook06, zoneHooks } = await settings();
+  const hooks = parseZoneHooks(zoneHooks);
+  if (webhook06 && !hooks["06"]) hooks["06"] = webhook06;
+  const hook = (zone && hooks[zone]) || webhook;
   if (!hook) return "pas de webhook";
   try {
     const r = await fetch(hook, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
@@ -143,17 +166,15 @@ async function checkAll() {
         const better = prev.stores ? r.stores.filter((s) => (storeRank[s.status] || 0) > (storeRank[before[s.name]] || 0)) : [];
         if (better.length) {
           const head = better.some((s) => s.status === "en_stock") ? "🏬 EN STOCK EN MAGASIN" : "🚚 ARRIVAGE EN MAGASIN";
-          for (const in06 of [true, false]) { // 06 -> #alertes-06, les autres -> salon principal
-            const group = better.filter((s) => IN_06.test(s.name) === in06);
-            if (group.length) {
-              await sendDiscord(`${head} — Fnac\n${name}\n${group.map((s) => `  • Fnac ${s.name} : ${s.text}`).join("\n")}\n${url}`, in06);
-            }
+          for (const zone of new Set(better.map((s) => zoneOf(s.name)))) { // un message par salon de région
+            const group = better.filter((s) => zoneOf(s.name) === zone);
+            await sendDiscord(`${head} — Fnac\n${name}\n${group.map((s) => `  • Fnac ${s.name} : ${s.text}`).join("\n")}\n${url}`, zone);
           }
           notify(`${head} : ${name} (${better.map((s) => s.name).join(", ")})`);
         }
       } else if (known && r.storeStatus && (storeRank[r.storeStatus] || 0) > (storeRank[prev.storeStatus] || 0)) {
         const head = r.storeStatus === "en_stock" ? "🏬 EN STOCK EN MAGASIN" : "🚚 ARRIVAGE EN MAGASIN";
-        await sendDiscord(`${head} — ${r.storeName || "Fnac"}\n${name}\n${r.storeText}\n${url}`, IN_06.test(r.storeName || ""));
+        await sendDiscord(`${head} — ${r.storeName || "Fnac"}\n${name}\n${r.storeText}\n${url}`, zoneOf(r.storeName));
         notify(`${head} (${r.storeName || "Fnac"}) : ${name}`);
       }
       if (!r.web && !r.source) {

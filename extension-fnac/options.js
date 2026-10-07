@@ -2,9 +2,9 @@ const $ = (id) => document.getElementById(id);
 const out = (t) => { $("out").textContent = Array.isArray(t) ? t.join("\n") : String(t); };
 const clean = (u) => u.trim().replace(/[?#].*$/, ""); // retire ?oref=… et autres traceurs
 
-chrome.storage.local.get(["webhook", "webhook06", "products", "intervalMinutes", "state"]).then(async (s) => {
+chrome.storage.local.get(["webhook", "webhook06", "zoneHooks", "products", "intervalMinutes", "state"]).then(async (s) => {
   $("webhook").value = s.webhook || "";
-  $("webhook06").value = s.webhook06 || "";
+  $("zoneHooks").value = s.zoneHooks || (s.webhook06 ? `06=${s.webhook06}` : "");
   const defaults = (await chrome.runtime.sendMessage("defaults")) || [];
   $("products").value = (s.products || defaults).join("\n");
   $("interval").value = s.intervalMinutes || 3;
@@ -22,7 +22,7 @@ chrome.storage.local.get(["webhook", "webhook06", "products", "intervalMinutes",
 
 $("save").onclick = async () => {
   const products = $("products").value.split("\n").map(clean).filter((u) => u.startsWith("https://www.fnac.com/"));
-  await chrome.storage.local.set({ webhook: $("webhook").value.trim(), webhook06: $("webhook06").value.trim(), products, intervalMinutes: Number($("interval").value) || 3 });
+  await chrome.storage.local.set({ webhook: $("webhook").value.trim(), zoneHooks: $("zoneHooks").value.trim(), webhook06: "", products, intervalMinutes: Number($("interval").value) || 3 });
   await chrome.runtime.sendMessage("reschedule");
   $("products").value = products.join("\n");
   out(`Enregistré : ${products.length} fiche(s).`);

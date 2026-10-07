@@ -14,7 +14,7 @@ https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-2-boosters-evoli-0196
 # Fiche dépubliée le 5 octobre (redirige vers la page Pokémon) : alerte dès qu'elle revient en vente
 https://www.joueclub.fr/pokemon/pokemon-bundle-6-boosters-0196214145221.html | Bundle 6 boosters
 # Lot de 2 tripacks : pas encore de fiche JouéClub, mais leurs magasins le connaissent (stock magasin par code-barres)
-https://www.joueclub.fr/pokemon/?ean=0196214144972 | 30e anniv. — Lot de 2 tripacks (JouéClub) — EAN 0196214144972
+https://www.joueclub.fr/pokemon/?ean=0196214144972 | 30e anniv. — Collection autocollant (version aléatoire) (JouéClub) — EAN 0196214144972
 # Pokébox, Coffrets Mew / Mewtwo, Règne Delta, classeur : pas encore de fiche JouéClub, mais leurs magasins les connaissent (stock magasin par code-barres)
 https://www.joueclub.fr/pokemon/?ean=0196214146976 | Pokébox Nymphali-ex (JouéClub) — EAN 0196214146976
 https://www.joueclub.fr/pokemon/?ean=0196214147034 | Pokébox Amphinobi-ex (JouéClub) — EAN 0196214147034
@@ -35,7 +35,7 @@ https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-coll
 https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/2-boosters-evoli-pokemon-30e-anniversaire.html | 30e anniv. — 2 boosters Évoli (LGR) — EAN 0196214152311
 https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-dresseur-d-elite-pokemon-30e-anniversaire.html | 30e anniv. — Coffret Dresseur d'Élite (LGR) — EAN 0196214144835
 # Lot de 2 tripacks : pas encore référencé chez La Grande Récré (stock magasin dès qu'il le sera)
-https://www.lagranderecre.fr/cartes-a-collectionner/?ean=0196214144972 | 30e anniv. — Lot de 2 tripacks (LGR) — EAN 0196214144972
+https://www.lagranderecre.fr/cartes-a-collectionner/?ean=0196214144972 | 30e anniv. — Collection autocollant (version aléatoire) (LGR) — EAN 0196214144972
 
 # Cultura — produits sans fiche en ligne : recherche par code-barres (EAN).
 # Alerte « fiche en ligne » dès que Cultura publie la fiche, puis suivi du stock (PC uniquement).
@@ -46,7 +46,7 @@ https://www.cultura.com/search/results?search_query=0196214145221 | 30e anniv. �
 https://www.cultura.com/search/results?search_query=0196214146297 | 30e anniv. — Mini Tin (Cultura)
 https://www.cultura.com/search/results?search_query=0196214152311 | 30e anniv. — 2 boosters Évoli (Cultura)
 https://www.cultura.com/search/results?search_query=0196214144835 | 30e anniv. — Coffret Dresseur d'Élite (Cultura)
-https://www.cultura.com/search/results?search_query=0196214144972 | 30e anniv. — Lot de 2 tripacks (Cultura)
+https://www.cultura.com/search/results?search_query=0196214144972 | 30e anniv. — Collection autocollant (version aléatoire) (Cultura)
 https://www.cultura.com/search/results?search_query=0196214146976 | Pokébox Nymphali-ex (Cultura)
 https://www.cultura.com/search/results?search_query=0196214147034 | Pokébox Amphinobi-ex (Cultura)
 https://www.cultura.com/search/results?search_query=0196214146907 | Pokébox (code commun Nymphali/Amphinobi) (Cultura)
@@ -54,6 +54,8 @@ https://www.cultura.com/search/results?search_query=0196214145450 | Coffret Mew 
 https://www.cultura.com/search/results?search_query=0196214145511 | Coffret Mewtwo (Cultura)
 https://www.cultura.com/search/results?search_query=0196214143913 | Règne Delta (ME06) — ETB 56,99 €, sortie 6/11 (Cultura)
 https://www.cultura.com/search/results?search_query=0196214145153 | 30e anniv. — Coffret Collection classeur (sortie 23/10) (Cultura)
+https://www.cultura.com/search/results?search_query=0196214145030 | 30e anniv. — Collection autocollant Noadkoko d'Alola (Cultura)
+https://www.cultura.com/search/results?search_query=0196214145092 | 30e anniv. — Collection autocollant Lucario (Cultura)
 
 # E.Leclerc — recherche par code-barres : alerte « fiche en ligne » dès que Leclerc publie la
 # fiche, puis suivi du stock en ligne vendu par Leclerc (retrait gratuit en magasin).
@@ -64,7 +66,7 @@ https://www.e.leclerc/recherche?q=0196214145221 | 30e anniv. — Bundle 6 booste
 https://www.e.leclerc/recherche?q=0196214146297 | 30e anniv. — Mini Tin (Leclerc)
 https://www.e.leclerc/recherche?q=0196214152311 | 30e anniv. — 2 boosters Évoli (Leclerc)
 https://www.e.leclerc/recherche?q=0196214144835 | 30e anniv. — Coffret Dresseur d'Élite (Leclerc)
-https://www.e.leclerc/recherche?q=0196214144972 | 30e anniv. — Lot de 2 tripacks (Leclerc)
+https://www.e.leclerc/recherche?q=0196214144972 | 30e anniv. — Collection autocollant (version aléatoire) (Leclerc)
 https://www.e.leclerc/recherche?q=0196214146976 | Pokébox Nymphali-ex (Leclerc)
 https://www.e.leclerc/recherche?q=0196214147034 | Pokébox Amphinobi-ex (Leclerc)
 https://www.e.leclerc/recherche?q=0196214146907 | Pokébox (code commun Nymphali/Amphinobi) (Leclerc)
@@ -72,6 +74,8 @@ https://www.e.leclerc/recherche?q=0196214145450 | Coffret Mew (Leclerc)
 https://www.e.leclerc/recherche?q=0196214145511 | Coffret Mewtwo (Leclerc)
 https://www.e.leclerc/recherche?q=0196214143913 | Règne Delta (ME06) — ETB 56,99 €, sortie 6/11 (Leclerc)
 https://www.e.leclerc/recherche?q=0196214145153 | 30e anniv. — Coffret Collection classeur (sortie 23/10) (Leclerc)
+https://www.e.leclerc/recherche?q=0196214145030 | 30e anniv. — Collection autocollant Noadkoko d'Alola (Leclerc)
+https://www.e.leclerc/recherche?q=0196214145092 | 30e anniv. — Collection autocollant Lucario (Leclerc)
 
 # Carrefour — recherche par code-barres (PC uniquement : site protégé, fenêtre de navigateur).
 https://www.carrefour.fr/s?q=0196214147225 | 30e anniv. — Coffret Collection Poster (Carrefour)
@@ -81,7 +85,7 @@ https://www.carrefour.fr/s?q=0196214145221 | 30e anniv. — Bundle 6 boosters (C
 https://www.carrefour.fr/s?q=0196214146297 | 30e anniv. — Mini Tin (Carrefour)
 https://www.carrefour.fr/s?q=0196214152311 | 30e anniv. — 2 boosters Évoli (Carrefour)
 https://www.carrefour.fr/s?q=0196214144835 | 30e anniv. — Coffret Dresseur d'Élite (Carrefour)
-https://www.carrefour.fr/p/tripack-pokemon-collection-autocollant-reajustable-30th-celebration-0196214144972 | 30e anniv. — Lot de 2 tripacks (Carrefour)
+https://www.carrefour.fr/p/tripack-pokemon-collection-autocollant-reajustable-30th-celebration-0196214144972 | 30e anniv. — Collection autocollant (version aléatoire) (Carrefour)
 https://www.carrefour.fr/s?q=0196214146976 | Pokébox Nymphali-ex (Carrefour)
 https://www.carrefour.fr/s?q=0196214147034 | Pokébox Amphinobi-ex (Carrefour)
 https://www.carrefour.fr/s?q=0196214146907 | Pokébox (code commun Nymphali/Amphinobi) (Carrefour)
@@ -89,6 +93,8 @@ https://www.carrefour.fr/s?q=0196214145450 | Coffret Mew (Carrefour)
 https://www.carrefour.fr/s?q=0196214145511 | Coffret Mewtwo (Carrefour)
 https://www.carrefour.fr/s?q=0196214143913 | Règne Delta (ME06) — ETB 56,99 €, sortie 6/11 (Carrefour)
 https://www.carrefour.fr/s?q=0196214145153 | 30e anniv. — Coffret Collection classeur (sortie 23/10) (Carrefour)
+https://www.carrefour.fr/s?q=0196214145030 | 30e anniv. — Collection autocollant Noadkoko d'Alola (Carrefour)
+https://www.carrefour.fr/s?q=0196214145092 | 30e anniv. — Collection autocollant Lucario (Carrefour)
 
 # Cdiscount — fiches officielles (adresse finissant par pok196214…), PC uniquement : site protégé.
 # La recherche par code-barres de Cdiscount ne trouve pas ces fiches : ajoutez-les à la main.
@@ -98,4 +104,4 @@ https://www.cdiscount.com/juniors/jeux-de-societe-cartes/jcc-pokemon-bundle-6-bo
 https://www.cdiscount.com/juniors/jeux-de-societe-cartes/pokemon-30eme-anniversaire-mini-tin-10-visuel/f-120791604-pok196214146297.html | 30e anniv. — Mini Tin (Cdiscount)
 https://www.cdiscount.com/juniors/jeux-de-societe-cartes/pokemon-duopack-2-boosters-30e-anniversaire/f-120791604-pok196214152311.html | 30e anniv. — 2 boosters Évoli (Cdiscount)
 https://www.cdiscount.com/juniors/jeux-de-societe-cartes/pokemon-etb-coffret-dresseur-d-elite-30e-anniv/f-120791604-pok196214144835.html | 30e anniv. — Coffret Dresseur d'Élite (Cdiscount)
-https://www.cdiscount.com/juniors/jeux-de-societe-cartes/30e-anniversaire-lot-de-2-tripacks-collection-au/f-120791604-pok196214144972.html | 30e anniv. — Lot de 2 tripacks (Cdiscount)
+https://www.cdiscount.com/juniors/jeux-de-societe-cartes/30e-anniversaire-lot-de-2-tripacks-collection-au/f-120791604-pok196214144972.html | 30e anniv. — Collection autocollant (version aléatoire) (Cdiscount)

@@ -183,6 +183,9 @@ def _from_jsonld(blocks: list[str], seller: re.Pattern | None = None) -> Availab
                     statuses.append(_norm_schema(str(o["availability"])))
                 price = price or _to_price(o.get("price") or o.get("lowPrice"))
             if not statuses:
+                # Leclerc, produit épuisé : plus d'« availability », seulement un AggregateOffer à 0 offre.
+                if any(isinstance(o, dict) and str(o.get("offerCount", "")) == "0" for o in expanded):
+                    return Availability(OUT_OF_STOCK, node.get("name"), None, "jsonld (aucune offre)")
                 if others:  # uniquement des vendeurs partenaires : rupture chez l'enseigne
                     return Availability(OUT_OF_STOCK, node.get("name"), None, "jsonld (vendeurs partenaires seulement)")
                 continue

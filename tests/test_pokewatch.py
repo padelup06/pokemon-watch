@@ -511,6 +511,11 @@ class EanInLinkTests(unittest.TestCase):
 
 
 class LeclercTests(unittest.TestCase):
+    def test_sold_out_page_without_availability(self):
+        html = ('<script type="application/ld+json">{"@type":"Product","name":"Mini Tin","offers":[{"@type":"Offer",'
+                '"url":"fp/x"},{"@type":"AggregateOffer","offerCount":0,"lowPrice":0}]}</script>')
+        self.assertEqual(parse_availability(html).status, "rupture")
+
     def test_marketplace_offers_ignored(self):
         from pokewatch.retailers import RETAILERS
         own = RETAILERS["leclerc"].own_seller

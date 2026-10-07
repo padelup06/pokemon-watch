@@ -86,6 +86,25 @@ def check_pc(watcher, silence_minutes: float = 15) -> None:
     print(f"[PC] dernier signe de vie : {since}{' (silencieux)' if silent else ''}")
 
 
+# ---------------------------------------------------------------- salons de zone
+
+def greet_zones(watcher) -> None:
+    """Premier passage avec le webhook d'une zone : un message dans son salon, pour vérifier."""
+    for z in watcher.zones:
+        name = z["name"]
+        hook = watcher.notifier.zone_webhooks.get(name)
+        key = f"zone_hello_{name}"
+        if not hook or watcher.store.get_meta(key) == hook[-12:]:
+            continue
+        watcher.notifier.send(
+            f"✅ Salon connecté : ici arriveront les alertes **magasin** de la zone {name} "
+            f"({z['location']}, {z['radius']} km) et le récap du matin.\n"
+            "Les alertes en ligne et les nouveautés restent dans le salon principal.",
+            name,
+        )
+        watcher.store.set_meta(key, hook[-12:])
+
+
 # ---------------------------------------------------------------- récap du matin
 
 def _short(name: str, retailer: str) -> str:

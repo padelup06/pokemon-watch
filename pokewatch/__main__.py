@@ -134,10 +134,11 @@ def main(argv: list[str] | None = None) -> int:
     else:
         w = Watcher(cfg)
         if args.cmd == "check":
-            from .daily import check_pc, maybe_send_recap
+            from .daily import check_pc, greet_zones, maybe_send_recap
 
             s = cfg["settings"]
             try:
+                greet_zones(w)
                 w.run_once()
                 if s.get("recap_hour") is not None:
                     maybe_send_recap(w, int(s["recap_hour"]))

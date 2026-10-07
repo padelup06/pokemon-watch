@@ -183,7 +183,9 @@ async function checkAll() {
       if (r.region && r.region.stores) {
         if (r.region.mode != null) mode = r.region.mode; // format de recherche qui marche : gardé
         const names = new Set((seen || []).map((s) => s.name));
-        seen = (seen || []).concat(r.region.stores.filter((s) => !names.has(s.name)).map((s) => ({ ...s, zone: rkey })));
+        // La Fnac renvoie aussi des magasins lointains (52 pour Paris) : on garde ceux à moins de 100 km.
+        const near = r.region.stores.filter((s) => !names.has(s.name) && (s.distanceKm == null || s.distanceKm <= 100));
+        seen = (seen || []).concat(near.map((s) => ({ ...s, zone: rkey })));
       }
       if (r.region && !r.region.stores && mode != null) mode = null; // format devenu invalide : on réessaiera tout
       let merged = null;
@@ -215,8 +217,9 @@ async function checkAll() {
         status: r.status, storeStatus: r.storeStatus, storeName: r.storeName, name,
         web: r.web, storeText: r.storeText, source: r.source, diag: r.diag, stores: merged || prev.stores, at: new Date().toISOString(),
         region: r.region ? { key: r.region.key, term: r.region.term, error: r.region.error || null,
-          n: r.region.stores ? r.region.stores.length : 0,
-          rayon: r.region.stores ? r.region.stores.filter((x) => x.status === "en_stock").length : 0 } : null,
+          n: r.region.stores ? r.region.stores.filter((x) => x.distanceKm == null || x.distanceKm <= 100).length : 0,
+          all: r.region.stores ? r.region.stores.length : 0,
+          rayon: r.region.stores ? r.region.stores.filter((x) => x.status === "en_stock" && (x.distanceKm == null || x.distanceKm <= 100)).length : 0 } : null,
       };
       report.push(`${name}\n   en ligne : ${r.web ? `${r.web} → ${LABEL[r.status] || r.status}` : LABEL[r.status]}\n   ` +
         (r.stores ? r.stores.map((s) => `Fnac ${s.name} : ${s.text}`).join("\n   ") : `${r.storeName || "magasin"} : ${r.storeText || "—"}`) +

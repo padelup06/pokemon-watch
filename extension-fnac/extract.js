@@ -32,7 +32,10 @@ async function pokewatchExtract(region = null, searchMode = null) {
       // La Fnac écrit « En rayon » (attribut data-available, ColorStatus_2) ou « Indisponible en rayon ».
       let status = pokewatchClassify(text, "store");
       if (status !== "rupture" && (li.hasAttribute("data-available") || /en rayon/i.test(text))) status = "en_stock";
-      list.push({ name: name.trim(), text, status });
+      // Distance affichée après le nom (« 395 m », « 15,1 km ») : sert à garder les Fnac proches.
+      const d = ((li.querySelector('[class*="liCol_1"]') || {}).textContent || "").match(/(\d+(?:[,.]\d+)?)\s*(km|m)\b/);
+      const distanceKm = d ? parseFloat(d[1].replace(",", ".")) / (d[2] === "m" ? 1000 : 1) : null;
+      list.push({ name: name.trim(), text, status, distanceKm });
     }
     return list;
   };

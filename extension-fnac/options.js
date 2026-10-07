@@ -15,7 +15,7 @@ chrome.storage.local.get(["webhook", "webhook06", "zoneHooks", "products", "inte
       ((n) => (n ? `\n   + ${n} Fnac d'autres régions suivies` : ""))(v.stores.filter((x) => x.zone && x.zone !== "06" && x.zone !== "paca").length)
       : `${v.storeName || "magasin"} : ${v.storeText || "—"}`) +
     (v.region ? `\n   région ${v.region.key} (${v.region.term}) : ` +
-      (v.region.n ? `${v.region.n} Fnac, ${v.region.rayon} en rayon` : `recherche impossible (${v.region.error || "aucun magasin"})`)
+      (v.region.n ? `${v.region.n} Fnac à moins de 100 km, ${v.region.rayon} en rayon` : `recherche impossible (${v.region.error || "aucun magasin"})`)
       : "\n   région : pas encore vérifiée (version 1.0.14 ?)") +
     (v.error ? `\n   ⚠ dernière lecture : ${v.error}` : "") +
     (v.diag && !v.diag.blocAchat

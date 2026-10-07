@@ -44,3 +44,12 @@ https://www.e.leclerc/recherche?q=0196214145221 | 30e anniv. — Bundle 6 booste
 https://www.e.leclerc/recherche?q=0196214146297 | 30e anniv. — Mini Tin (Leclerc)
 https://www.e.leclerc/recherche?q=0196214152311 | 30e anniv. — 2 boosters Évoli (Leclerc)
 https://www.e.leclerc/recherche?q=0196214144835 | 30e anniv. — Coffret Dresseur d'Élite (Leclerc)
+
+# Carrefour — recherche par code-barres (PC uniquement : site protégé, fenêtre de navigateur).
+https://www.carrefour.fr/s?q=0196214147225 | 30e anniv. — Coffret Collection Poster (Carrefour)
+https://www.carrefour.fr/s?q=0196214147102 | 30e anniv. — Coffret 4 boosters Nymphali-ex (Carrefour)
+https://www.carrefour.fr/s?q=0196214147164 | 30e anniv. — Coffret 4 boosters Amphinobi-ex (Carrefour)
+https://www.carrefour.fr/s?q=0196214145221 | 30e anniv. — Bundle 6 boosters (Carrefour)
+https://www.carrefour.fr/s?q=0196214146297 | 30e anniv. — Mini Tin (Carrefour)
+https://www.carrefour.fr/s?q=0196214152311 | 30e anniv. — 2 boosters Évoli (Carrefour)
+https://www.carrefour.fr/s?q=0196214144835 | 30e anniv. — Coffret Dresseur d'Élite (Carrefour)

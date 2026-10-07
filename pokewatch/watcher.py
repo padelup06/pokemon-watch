@@ -93,7 +93,7 @@ def ean_search(url: str) -> str | None:
     """Code-barres d'une URL de recherche par EAN (cultura.com/search/results?search_query=0196…,
     e.leclerc/recherche?q=0196…)."""
     m = re.search(r"/search/[^?]*\?(?:[^#]*&)?search_query=(\d{8,14})(?:&|$)", url) or re.search(
-        r"e\.leclerc/recherche\?(?:[^#]*&)?q=(\d{8,14})(?:&|$)", url
+        r"(?:e\.leclerc/recherche|carrefour\.fr/s)\?(?:[^#]*&)?q=(\d{8,14})(?:&|$)", url
     )
     return m.group(1) if m else None
 

@@ -152,8 +152,9 @@ def _from_jsonld(blocks: list[str], seller: re.Pattern | None = None) -> Availab
             for o in expanded:
                 if not isinstance(o, dict):
                     continue
-                # seller : seules comptent les offres de l'enseigne elle-même (pas sa marketplace).
-                if seller is not None and o.get("availability") and not seller.search(_seller_name(o)):
+                # seller : seules comptent les offres de l'enseigne elle-même (pas sa marketplace) ;
+                # une offre sans vendeur indiqué est gardée.
+                if seller is not None and o.get("availability") and _seller_name(o) and not seller.search(_seller_name(o)):
                     others += 1
                     continue
                 if o.get("availability"):

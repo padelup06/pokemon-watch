@@ -88,7 +88,9 @@ RETAILERS: dict[str, Retailer] = {
             product_url=re.compile(r"https://www\.carrefour\.fr/p/[^\"'?#\s]+"),
             in_stock_keywords=_COMMON_IN,
             out_of_stock_keywords=_COMMON_OUT,
-            needs_browser=True,
+            needs_browser=True,  # Cloudflare : passe seulement dans la fenêtre de navigateur du PC
+            # Marketplace Carrefour : seules les offres vendues par Carrefour comptent.
+            own_seller=re.compile(r"carrefour", re.I),
         ),
         Retailer(
             key="leclerc",

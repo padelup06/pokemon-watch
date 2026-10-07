@@ -15,6 +15,10 @@ https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-2-boosters-evoli-0196
 https://www.joueclub.fr/pokemon/pokemon-bundle-6-boosters-0196214145221.html | Bundle 6 boosters
 # Lot de 2 tripacks : pas encore de fiche JouéClub, mais leurs magasins le connaissent (stock magasin par code-barres)
 https://www.joueclub.fr/pokemon/?ean=0196214144972 | 30e anniv. — Lot de 2 tripacks (JouéClub) — EAN 0196214144972
+# Pokébox : pas encore de fiche JouéClub, mais leurs magasins les connaissent (stock magasin par code-barres)
+https://www.joueclub.fr/pokemon/?ean=0196214146976 | Pokébox Nymphali-ex (JouéClub) — EAN 0196214146976
+https://www.joueclub.fr/pokemon/?ean=0196214147034 | Pokébox Amphinobi-ex (JouéClub) — EAN 0196214147034
+https://www.joueclub.fr/pokemon/?ean=0196214146907 | Pokébox (code commun Nymphali/Amphinobi) (JouéClub) — EAN 0196214146907
 
 # La Grande Récré — 30e anniversaire
 # Le 5 octobre 2026 : Mini Tin en rupture en ligne mais EN STOCK à Nice et Cagnes ; les 5 autres
@@ -39,6 +43,9 @@ https://www.cultura.com/search/results?search_query=0196214146297 | 30e anniv. �
 https://www.cultura.com/search/results?search_query=0196214152311 | 30e anniv. — 2 boosters Évoli (Cultura)
 https://www.cultura.com/search/results?search_query=0196214144835 | 30e anniv. — Coffret Dresseur d'Élite (Cultura)
 https://www.cultura.com/search/results?search_query=0196214144972 | 30e anniv. — Lot de 2 tripacks (Cultura)
+https://www.cultura.com/search/results?search_query=0196214146976 | Pokébox Nymphali-ex (Cultura)
+https://www.cultura.com/search/results?search_query=0196214147034 | Pokébox Amphinobi-ex (Cultura)
+https://www.cultura.com/search/results?search_query=0196214146907 | Pokébox (code commun Nymphali/Amphinobi) (Cultura)
 
 # E.Leclerc — recherche par code-barres : alerte « fiche en ligne » dès que Leclerc publie la
 # fiche, puis suivi du stock en ligne vendu par Leclerc (retrait gratuit en magasin).
@@ -50,6 +57,9 @@ https://www.e.leclerc/recherche?q=0196214146297 | 30e anniv. — Mini Tin (Lecle
 https://www.e.leclerc/recherche?q=0196214152311 | 30e anniv. — 2 boosters Évoli (Leclerc)
 https://www.e.leclerc/recherche?q=0196214144835 | 30e anniv. — Coffret Dresseur d'Élite (Leclerc)
 https://www.e.leclerc/recherche?q=0196214144972 | 30e anniv. — Lot de 2 tripacks (Leclerc)
+https://www.e.leclerc/recherche?q=0196214146976 | Pokébox Nymphali-ex (Leclerc)
+https://www.e.leclerc/recherche?q=0196214147034 | Pokébox Amphinobi-ex (Leclerc)
+https://www.e.leclerc/recherche?q=0196214146907 | Pokébox (code commun Nymphali/Amphinobi) (Leclerc)
 
 # Carrefour — recherche par code-barres (PC uniquement : site protégé, fenêtre de navigateur).
 https://www.carrefour.fr/s?q=0196214147225 | 30e anniv. — Coffret Collection Poster (Carrefour)
@@ -60,6 +70,9 @@ https://www.carrefour.fr/s?q=0196214146297 | 30e anniv. — Mini Tin (Carrefour)
 https://www.carrefour.fr/s?q=0196214152311 | 30e anniv. — 2 boosters Évoli (Carrefour)
 https://www.carrefour.fr/s?q=0196214144835 | 30e anniv. — Coffret Dresseur d'Élite (Carrefour)
 https://www.carrefour.fr/p/tripack-pokemon-collection-autocollant-reajustable-30th-celebration-0196214144972 | 30e anniv. — Lot de 2 tripacks (Carrefour)
+https://www.carrefour.fr/s?q=0196214146976 | Pokébox Nymphali-ex (Carrefour)
+https://www.carrefour.fr/s?q=0196214147034 | Pokébox Amphinobi-ex (Carrefour)
+https://www.carrefour.fr/s?q=0196214146907 | Pokébox (code commun Nymphali/Amphinobi) (Carrefour)
 
 # Cdiscount — fiches officielles (adresse finissant par pok196214…), PC uniquement : site protégé.
 # La recherche par code-barres de Cdiscount ne trouve pas ces fiches : ajoutez-les à la main.

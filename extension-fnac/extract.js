@@ -5,7 +5,7 @@
 //   pdp-buyBox-storeAvailability-status  -> « Indisponible en magasin », « Retrait 1h »…
 // Les offres de vendeurs tiers (marketplace) et les « Ajouter au panier » des produits
 // recommandés sont ignorés : seul le bloc d'achat Fnac compte.
-async function pokewatchExtract() {
+async function pokewatchExtract(region = null, searchMode = null) {
   // Tout doit être DANS cette fonction : Chrome n'injecte dans la page que son code,
   // pas les autres fonctions du fichier.
   const pokewatchClassify = function (text, kind) {
@@ -18,6 +18,23 @@ async function pokewatchExtract() {
     if (kind === "store" && /sous \d+|jours|à partir du|a partir du|commande/.test(t)) return "arrivage";
     if (/en stock|disponible|retrait|expédié|expedie|livré|livre/.test(t)) return "en_stock";
     return "inconnu";
+  };
+
+  // Liste « Retirer en magasin » : nom de chaque Fnac et « En rayon » / « Indisponible en rayon ».
+  const parseStores = function (htmlText) {
+    const pop = new DOMParser().parseFromString(htmlText, "text/html");
+    const list = [];
+    for (const li of pop.querySelectorAll("li.liStore")) {
+      const name = (li.querySelector(".storeName") || {}).textContent;
+      const col = li.querySelector('[class*="liCol_2"]');
+      if (!name || !col) continue;
+      const text = col.textContent.replace(/\s+/g, " ").trim();
+      // La Fnac écrit « En rayon » (attribut data-available, ColorStatus_2) ou « Indisponible en rayon ».
+      let status = pokewatchClassify(text, "store");
+      if (status !== "rupture" && (li.hasAttribute("data-available") || /en rayon/i.test(text))) status = "en_stock";
+      list.push({ name: name.trim(), text, status });
+    }
+    return list;
   };
 
   const html = document.documentElement.outerHTML;
@@ -79,19 +96,31 @@ async function pokewatchExtract() {
       const r = await fetch(`/nav/api/storepickup/storepickuppopin?prid=${prid}&storeid=${storeid}` +
         `&formid=${formid}&offerref=00000000-0000-0000-0000-000000000000&catalog=1`, { credentials: "include" });
       if (r.ok) {
-        const pop = new DOMParser().parseFromString(await r.text(), "text/html");
-        const list = [];
-        for (const li of pop.querySelectorAll("li.liStore")) {
-          const name = (li.querySelector(".storeName") || {}).textContent;
-          const col = li.querySelector('[class*="liCol_2"]');
-          if (!name || !col) continue;
-          const text = col.textContent.replace(/\s+/g, " ").trim();
-          // La Fnac écrit « En rayon » (attribut data-available, ColorStatus_2) ou « Indisponible en rayon ».
-          let status = pokewatchClassify(text, "store");
-          if (status !== "rupture" && (li.hasAttribute("data-available") || /en rayon/i.test(text))) status = "en_stock";
-          list.push({ name: name.trim(), text, status });
-        }
+        const list = parseStores(await r.text());
         if (list.length) result.stores = list;
+      }
+      // Magasins d'une autre région : même recherche que la case « Trouver un magasin » du panneau
+      // (POST /nav/api/StorePickup/SearchStore). Le format exact n'a pas pu être relevé : on essaie
+      // les formats probables et on garde celui qui renvoie une liste de magasins.
+      if (region) {
+        const fields = { term: region.term, prid, catalog: "1", offerref: "00000000-0000-0000-0000-000000000000", formid };
+        const bodies = [
+          () => { const f = new FormData(); for (const [k, v] of Object.entries(fields)) f.append(k, v); return [f, {}]; },
+          () => [new URLSearchParams(fields).toString(), { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" }],
+          () => { const f = new FormData(); f.append("term", region.term); return [f, {}]; },
+          () => [JSON.stringify(fields), { "Content-Type": "application/json" }],
+        ];
+        const order = searchMode != null ? [searchMode] : bodies.map((_, i) => i);
+        result.region = { key: region.key, term: region.term, stores: null, mode: null };
+        for (const i of order) {
+          const [body, headers] = bodies[i]();
+          const rr = await fetch("/nav/api/StorePickup/SearchStore", {
+            method: "POST", body, credentials: "include", headers: { "X-Requested-With": "XMLHttpRequest", ...headers },
+          });
+          const list = rr.ok ? parseStores(await rr.text()) : [];
+          if (list.length) { result.region.stores = list; result.region.mode = i; break; }
+          result.region.error = `format ${i} : HTTP ${rr.status}, ${list.length} magasin`;
+        }
       }
     }
   } catch (e) { /* le bloc d'achat suffit si cet appel échoue */ }

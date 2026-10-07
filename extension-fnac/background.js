@@ -66,12 +66,14 @@ function waitForLoad(tabId, timeoutMs = 45000) {
   });
 }
 
-async function readProduct(url) {
+async function readProduct(url, region = null, searchMode = null) {
   const tab = await chrome.tabs.create({ url, active: false });
   try {
     await waitForLoad(tab.id);
     await sleep(1500); // la lecture attend elle-même le bloc d'achat (jusqu'à 10 s)
-    const results = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: pokewatchExtract });
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tab.id }, func: pokewatchExtract, args: [region, searchMode],
+    });
     const result = results && results[0] && results[0].result;
     // Page d'erreur, onglet fermé, vérification anti-robot… : pas de résultat exploitable.
     return result || { status: "erreur", error: "page non lue (chargement incomplet ?)" };
@@ -81,6 +83,14 @@ async function readProduct(url) {
     chrome.tabs.remove(tab.id).catch(() => {}); // onglet déjà fermé : rien à faire
   }
 }
+
+// Autres régions : une par vérification, à tour de rôle (recherche « Trouver un magasin » sur sa
+// grande ville). Clés identiques aux salons Discord (webhooks-regions.txt).
+const FNAC_REGIONS = [
+  ["idf", "Paris"], ["ara", "Lyon"], ["occ", "Toulouse"], ["naq", "Bordeaux"], ["hdf", "Lille"],
+  ["ge", "Strasbourg"], ["pdl", "Nantes"], ["bre", "Rennes"], ["nor", "Rouen"], ["bfc", "Dijon"],
+  ["cvl", "Tours"], ["cor", "Ajaccio"], ["paca", "Marseille"],
+];
 
 // Salon de région d'une Fnac (alertes magasin). Les Fnac vues depuis Cannes vont du 06 à Marseille.
 const ZONE_OF = [
@@ -130,10 +140,13 @@ async function checkAll() {
   try {
     const { products, state } = await settings();
     const report = [];
+    const { regionIdx = 0, searchMode = null } = await chrome.storage.local.get(["regionIdx", "searchMode"]);
+    const [rkey, rterm] = FNAC_REGIONS[regionIdx % FNAC_REGIONS.length];
+    let mode = searchMode;
     for (const url of products) {
       let r;
       try {
-        r = await readProduct(url);
+        r = await readProduct(url, { key: rkey, term: rterm }, mode);
       } catch (e) {
         r = { status: "erreur", error: String(e) };
       }
@@ -160,14 +173,27 @@ async function checkAll() {
         notify(`${LABEL[r.status]} en ligne : ${name}`);
       }
       const storeRank = { rupture: 0, inconnu: 0, arrivage: 1, en_stock: 2 };
-      if (r.stores) {
-        // Tous les magasins proches : alerte pour ceux qui passent en stock (ou en arrivage).
+      // Magasins de la région du tour : rangés dans son salon.
+      let seen = r.stores ? r.stores.map((s) => ({ ...s, zone: zoneOf(s.name) })) : null;
+      if (r.region && r.region.stores) {
+        if (r.region.mode != null) mode = r.region.mode; // format de recherche qui marche : gardé
+        const names = new Set((seen || []).map((s) => s.name));
+        seen = (seen || []).concat(r.region.stores.filter((s) => !names.has(s.name)).map((s) => ({ ...s, zone: rkey })));
+      }
+      if (r.region && !r.region.stores && mode != null) mode = null; // format devenu invalide : on réessaiera tout
+      let merged = null;
+      if (seen) {
+        // Tous les magasins suivis : alerte pour ceux qui passent en stock (ou en arrivage). Un
+        // magasin vu pour la première fois (nouvelle région) est seulement noté.
         const before = Object.fromEntries((prev.stores || []).map((s) => [s.name, s.status]));
-        const better = prev.stores ? r.stores.filter((s) => (storeRank[s.status] || 0) > (storeRank[before[s.name]] || 0)) : [];
+        const better = seen.filter((s) => s.name in before && (storeRank[s.status] || 0) > (storeRank[before[s.name]] || 0));
+        const byName = Object.fromEntries((prev.stores || []).map((s) => [s.name, s]));
+        for (const s of seen) byName[s.name] = s;
+        merged = Object.values(byName);
         if (better.length) {
           const head = better.some((s) => s.status === "en_stock") ? "🏬 EN STOCK EN MAGASIN" : "🚚 ARRIVAGE EN MAGASIN";
-          for (const zone of new Set(better.map((s) => zoneOf(s.name)))) { // un message par salon de région
-            const group = better.filter((s) => zoneOf(s.name) === zone);
+          for (const zone of new Set(better.map((s) => s.zone))) { // un message par salon de région
+            const group = better.filter((s) => s.zone === zone);
             await sendDiscord(`${head} — Fnac\n${name}\n${group.map((s) => `  • Fnac ${s.name} : ${s.text}`).join("\n")}\n${url}`, zone);
           }
           notify(`${head} : ${name} (${better.map((s) => s.name).join(", ")})`);
@@ -182,13 +208,16 @@ async function checkAll() {
       }
       state[url] = {
         status: r.status, storeStatus: r.storeStatus, storeName: r.storeName, name,
-        web: r.web, storeText: r.storeText, source: r.source, diag: r.diag, stores: r.stores, at: new Date().toISOString(),
+        web: r.web, storeText: r.storeText, source: r.source, diag: r.diag, stores: merged || prev.stores, at: new Date().toISOString(),
       };
       report.push(`${name}\n   en ligne : ${r.web ? `${r.web} → ${LABEL[r.status] || r.status}` : LABEL[r.status]}\n   ` +
-        (r.stores ? r.stores.map((s) => `Fnac ${s.name} : ${s.text}`).join("\n   ") : `${r.storeName || "magasin"} : ${r.storeText || "—"}`));
+        (r.stores ? r.stores.map((s) => `Fnac ${s.name} : ${s.text}`).join("\n   ") : `${r.storeName || "magasin"} : ${r.storeText || "—"}`) +
+        (r.region ? `\n   région ${r.region.key} (${r.region.term}) : ` + (r.region.stores
+          ? `${r.region.stores.length} Fnac, ${r.region.stores.filter((s) => s.status === "en_stock").length} en rayon`
+          : `recherche impossible (${r.region.error || "?"})`) : ""));
       await sleep(3000 + Math.random() * 4000);
     }
-    await chrome.storage.local.set({ state });
+    await chrome.storage.local.set({ state, regionIdx: regionIdx + 1, searchMode: mode });
     return report;
   } finally {
     running = false;

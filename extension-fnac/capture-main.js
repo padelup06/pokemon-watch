@@ -10,7 +10,10 @@
     if (!RELEVANT.test(url) && !RELEVANT.test((text || "").slice(0, 4000))) return;
     window.postMessage({ __pokewatchCapture: {
       at: new Date().toISOString(), page: location.pathname, method, url: String(url),
-      body: typeof body === "string" ? body.slice(0, 1500) : body ? "(non texte)" : "",
+      body: typeof body === "string" ? body.slice(0, 1500)
+        : body instanceof URLSearchParams ? body.toString()
+        : body instanceof FormData ? "FormData " + JSON.stringify([...body.entries()].map(([k, v]) => [k, String(v)]))
+        : body ? "(non texte)" : "",
       status, response: (text || "").slice(0, 6000),
     } }, location.origin);
   };

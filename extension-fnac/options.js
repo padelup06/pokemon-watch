@@ -11,7 +11,9 @@ chrome.storage.local.get(["webhook", "webhook06", "zoneHooks", "products", "inte
   const when = (iso) => (iso ? new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "?");
   const st = Object.entries(s.state || {}).map(([u, v]) =>
     `${v.name || u}  (relevé à ${when(v.at)})\n   en ligne : ${v.web ? `${v.web} → ${v.status}` : `${v.status || "?"} (${v.source || "bloc d'achat introuvable"})`}\n   ` +
-    (v.stores ? v.stores.map((x) => `Fnac ${x.name} : ${x.text}`).join("\n   ") : `${v.storeName || "magasin"} : ${v.storeText || "—"}`) +
+    (v.stores ? v.stores.filter((x) => !x.zone || x.zone === "06" || x.zone === "paca").map((x) => `Fnac ${x.name} : ${x.text}`).join("\n   ") +
+      ((n) => (n ? `\n   + ${n} Fnac d'autres régions suivies` : ""))(v.stores.filter((x) => x.zone && x.zone !== "06" && x.zone !== "paca").length)
+      : `${v.storeName || "magasin"} : ${v.storeText || "—"}`) +
     (v.error ? `\n   ⚠ dernière lecture : ${v.error}` : "") +
     (v.diag && !v.diag.blocAchat
       ? `\n   🔎 diagnostic : page « ${v.diag.titre} », ${v.diag.reperes} repères, offres : ` +

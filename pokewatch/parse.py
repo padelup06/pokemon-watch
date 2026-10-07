@@ -122,7 +122,14 @@ def _to_price(value) -> float | None:
         return None
 
 
-def _from_jsonld(blocks: list[str]) -> Availability | None:
+def _seller_name(offer: dict) -> str:
+    seller = offer.get("seller")
+    if isinstance(seller, dict):
+        return str(seller.get("name") or "")
+    return str(seller or "")
+
+
+def _from_jsonld(blocks: list[str], seller: re.Pattern | None = None) -> Availability | None:
     for raw in blocks:
         try:
             data = json.loads(raw.strip())
@@ -141,13 +148,20 @@ def _from_jsonld(blocks: list[str]) -> Availability | None:
                 expanded.append(o)
             statuses = []
             price = None
+            others = 0
             for o in expanded:
                 if not isinstance(o, dict):
+                    continue
+                # seller : seules comptent les offres de l'enseigne elle-même (pas sa marketplace).
+                if seller is not None and o.get("availability") and not seller.search(_seller_name(o)):
+                    others += 1
                     continue
                 if o.get("availability"):
                     statuses.append(_norm_schema(str(o["availability"])))
                 price = price or _to_price(o.get("price") or o.get("lowPrice"))
             if not statuses:
+                if others:  # uniquement des vendeurs partenaires : rupture chez l'enseigne
+                    return Availability(OUT_OF_STOCK, node.get("name"), None, "jsonld (vendeurs partenaires seulement)")
                 continue
             # Une seule offre dispo suffit pour considérer le produit achetable.
             for wanted in (IN_STOCK, PREORDER, OUT_OF_STOCK):
@@ -188,11 +202,12 @@ def parse_availability(
     html: str,
     in_stock_keywords: list[str] | None = None,
     out_of_stock_keywords: list[str] | None = None,
+    seller: re.Pattern | None = None,
 ) -> Availability:
     scanner = _PageScanner()
     scanner.feed(html)
     result = (
-        _from_jsonld(scanner.jsonld)
+        _from_jsonld(scanner.jsonld, seller)
         or _from_meta(scanner.meta)
         or _from_keywords(" ".join(scanner.text), in_stock_keywords or [], out_of_stock_keywords or [])
         or Availability()

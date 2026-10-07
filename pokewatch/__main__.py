@@ -66,9 +66,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Échec de récupération : {e}")
             return 1
         if retailer.use_keywords:
-            av = parse_availability(html, retailer.in_stock_keywords, retailer.out_of_stock_keywords)
+            av = parse_availability(html, retailer.in_stock_keywords, retailer.out_of_stock_keywords, retailer.own_seller)
         else:
-            av = parse_availability(html)
+            av = parse_availability(html, seller=retailer.own_seller)
         print(f"Enseigne : {retailer.name}\nProduit  : {av.name}\nStatut   : {av.status} (via {av.source or 'rien'})")
         print(f"Prix     : {av.price}")
         if not args.cp:

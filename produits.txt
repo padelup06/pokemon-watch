@@ -34,3 +34,13 @@ https://www.cultura.com/search/results?search_query=0196214145221 | 30e anniv. �
 https://www.cultura.com/search/results?search_query=0196214146297 | 30e anniv. — Mini Tin (Cultura)
 https://www.cultura.com/search/results?search_query=0196214152311 | 30e anniv. — 2 boosters Évoli (Cultura)
 https://www.cultura.com/search/results?search_query=0196214144835 | 30e anniv. — Coffret Dresseur d'Élite (Cultura)
+
+# E.Leclerc — recherche par code-barres : alerte « fiche en ligne » dès que Leclerc publie la
+# fiche, puis suivi du stock en ligne vendu par Leclerc (retrait gratuit en magasin).
+https://www.e.leclerc/recherche?q=0196214147225 | 30e anniv. — Coffret Collection Poster (Leclerc)
+https://www.e.leclerc/recherche?q=0196214147102 | 30e anniv. — Coffret 4 boosters Nymphali-ex (Leclerc)
+https://www.e.leclerc/recherche?q=0196214147164 | 30e anniv. — Coffret 4 boosters Amphinobi-ex (Leclerc)
+https://www.e.leclerc/recherche?q=0196214145221 | 30e anniv. — Bundle 6 boosters (Leclerc)
+https://www.e.leclerc/recherche?q=0196214146297 | 30e anniv. — Mini Tin (Leclerc)
+https://www.e.leclerc/recherche?q=0196214152311 | 30e anniv. — 2 boosters Évoli (Leclerc)
+https://www.e.leclerc/recherche?q=0196214144835 | 30e anniv. — Coffret Dresseur d'Élite (Leclerc)

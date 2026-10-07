@@ -90,8 +90,11 @@ def extract_product_links(html: str, base_url: str) -> list[str]:
 
 
 def ean_search(url: str) -> str | None:
-    """Code-barres d'une URL de recherche par EAN (ex. cultura.com/search/results?search_query=0196…)."""
-    m = re.search(r"/search/[^?]*\?(?:[^#]*&)?search_query=(\d{8,14})(?:&|$)", url)
+    """Code-barres d'une URL de recherche par EAN (cultura.com/search/results?search_query=0196…,
+    e.leclerc/recherche?q=0196…)."""
+    m = re.search(r"/search/[^?]*\?(?:[^#]*&)?search_query=(\d{8,14})(?:&|$)", url) or re.search(
+        r"e\.leclerc/recherche\?(?:[^#]*&)?q=(\d{8,14})(?:&|$)", url
+    )
     return m.group(1) if m else None
 
 
@@ -134,6 +137,9 @@ class Watcher:
         self.store_backoff = float(s.get("store_error_pause_seconds", 300))
         self._store_last: dict[str, float] = {}
         self._store_pause: dict[str, float] = {}
+        # Recherches par code-barres (pages lourdes, produit pas encore en ligne) : espacées.
+        self.ean_search_interval = float(s.get("ean_search_seconds", 0))
+        self._ean_last: dict[str, float] = {}
         # GitHub : laisse la liste de surveillance au PC (vérifiée chaque minute) pour éviter les doublons.
         self.exclude_watchlist = bool(s.get("exclude_watchlist", False))
         self.watch_interval = float(s.get("watchlist_interval_seconds", 0))
@@ -190,9 +196,9 @@ class Watcher:
             print(f"[{retailer.name}] ⚠ {e} : {url}")
             return
         if retailer.use_keywords:
-            av = parse_availability(html, retailer.in_stock_keywords, retailer.out_of_stock_keywords)
+            av = parse_availability(html, retailer.in_stock_keywords, retailer.out_of_stock_keywords, retailer.own_seller)
         else:
-            av = parse_availability(html)
+            av = parse_availability(html, seller=retailer.own_seller)
         name = label or av.name
         old = self.store.record(url, retailer.key, av.status, name, av.price)
         print(f"{time.strftime('%H:%M:%S')} [{retailer.name}] {av.status:<11} ({av.source or '-'}) {name or url}", flush=True)
@@ -217,6 +223,9 @@ class Watcher:
         row = self.store.get(url)
         if row is not None and row["found_url"]:
             return self.check(row["found_url"], label)  # fiche déjà trouvée : on suit directement la fiche
+        if time.time() - self._ean_last.get(url, 0) < self.ean_search_interval:
+            return
+        self._ean_last[url] = time.time()
         try:
             html = self.fetcher.get(url, retailer.needs_browser)
         except FetchError as e:

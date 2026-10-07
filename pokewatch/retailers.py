@@ -31,6 +31,9 @@ class Retailer:
     # False quand le site expose toujours des données schema.org fiables : une page
     # sans ces données est alors une redirection (produit retiré), pas une fiche.
     use_keywords: bool = True
+    # Nom du vendeur « maison » dans les offres schema.org : les offres des vendeurs
+    # partenaires (marketplace) sont alors ignorées.
+    own_seller: re.Pattern | None = None
 
 
 _COMMON_IN = ["Ajouter au panier", "En stock", "Disponible en ligne", "Livraison à domicile"]
@@ -91,10 +94,14 @@ RETAILERS: dict[str, Retailer] = {
             key="leclerc",
             name="E.Leclerc",
             domains=("e.leclerc",),
-            product_url=re.compile(r"https://www\.e\.leclerc/fp/[^\"'?#\s]+"),
+            # Les fiches finissent par le code EAN (ex. /fp/pokemon-coffret-…-0196214105973).
+            product_url=re.compile(r"https://www\.e\.leclerc/fp/[^\"'?#\s]+-\d{8,14}"),
             in_stock_keywords=_COMMON_IN,
             out_of_stock_keywords=_COMMON_OUT,
-            needs_browser=True,
+            use_keywords=False,
+            # Vendeur « E.Leclerc » = Leclerc lui-même (Académie de Combat à 23,90 €) ; les autres,
+            # « Stock e-commerce » compris (coffret à 138 €), sont des vendeurs partenaires.
+            own_seller=re.compile(r"^\s*e\.?\s*leclerc\s*$", re.I),
         ),
         Retailer(
             key="fnac",

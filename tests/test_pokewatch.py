@@ -194,6 +194,24 @@ class TrackDiscoveredTests(unittest.TestCase):
         self.assertEqual(visited, [search, mine])  # le produit trouvé par la recherche n'est pas relevé
 
 
+class LeclercTests(unittest.TestCase):
+    def test_marketplace_offers_ignored(self):
+        from pokewatch.retailers import RETAILERS
+        own = RETAILERS["leclerc"].own_seller
+        def page(*offers):
+            o = ",".join('{"@type":"Offer","price":"%s","availability":"https://schema.org/%s","seller":{"@type":"Organization","name":"%s"}}' % x for x in offers)
+            return '<script type="application/ld+json">{"@type":"Product","name":"Coffret","offers":[%s]}</script>' % o
+        only_partner = page(("138.41", "InStock", "Stock e-commerce"))
+        self.assertEqual(parse_availability(only_partner, seller=own).status, "rupture")
+        self.assertEqual(parse_availability(page(("23.90", "InStock", "E.Leclerc")), seller=own).status, "en_stock")
+        self.assertEqual(parse_availability(only_partner).status, "en_stock")  # sans filtre : comportement inchangé
+
+    def test_ean_search_url(self):
+        from pokewatch.watcher import ean_search
+        self.assertEqual(ean_search("https://www.e.leclerc/recherche?q=0196214146297"), "0196214146297")
+        self.assertIsNone(ean_search("https://www.e.leclerc/recherche?q=pokemon"))
+
+
 class NewListingTests(unittest.TestCase):
     def test_sitemap_new_pokemon_listing(self):
         db = os.path.join(tempfile.mkdtemp(), "t.db")

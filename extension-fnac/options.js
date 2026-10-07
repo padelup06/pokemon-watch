@@ -14,9 +14,9 @@ chrome.storage.local.get(["webhook", "webhook06", "zoneHooks", "products", "inte
     (v.stores ? v.stores.filter((x) => !x.zone || x.zone === "06" || x.zone === "paca").map((x) => `Fnac ${x.name} : ${x.text}`).join("\n   ") +
       ((n) => (n ? `\n   + ${n} Fnac d'autres régions suivies` : ""))(v.stores.filter((x) => x.zone && x.zone !== "06" && x.zone !== "paca").length)
       : `${v.storeName || "magasin"} : ${v.storeText || "—"}`) +
-    (v.region ? `\n   région ${v.region.key} (${v.region.term}) : ` +
-      (v.region.n ? `${v.region.n} Fnac à moins de 100 km, ${v.region.rayon} en rayon` : `recherche impossible (${v.region.error || "aucun magasin"})`)
-      : "\n   région : pas encore vérifiée (version 1.0.14 ?)") +
+    (Array.isArray(v.region) ? v.region.map((g) => `\n   ${g.key} (${g.term}, ${g.radius} km) : ` +
+      (g.n ? `${g.n} Fnac, ${g.rayon} en rayon` : `recherche impossible (${g.error || "aucun magasin"})`)).join("")
+      : "\n   régions : prochain tour « magasins »") +
     (v.error ? `\n   ⚠ dernière lecture : ${v.error}` : "") +
     (v.diag && !v.diag.blocAchat
       ? `\n   🔎 diagnostic : page « ${v.diag.titre} », ${v.diag.reperes} repères, offres : ` +

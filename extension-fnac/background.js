@@ -87,14 +87,31 @@ async function readProduct(url, region = null, searchMode = null, withStores = t
 // Autres régions : une par vérification, à tour de rôle (recherche « Trouver un magasin » sur sa
 // grande ville). Clés identiques aux salons Discord (webhooks-regions.txt).
 const FNAC_REGIONS = [
-  ["idf", "Paris", 48.856614, 2.352222], ["ara", "Lyon", 45.757549, 4.829766],
-  ["occ", "Toulouse", 43.604652, 1.444209], ["naq", "Bordeaux", 44.837789, -0.57918],
-  ["hdf", "Lille", 50.62925, 3.057256], ["ge", "Strasbourg", 48.573405, 7.752111],
-  ["pdl", "Nantes", 47.218371, -1.553621], ["bre", "Rennes", 48.117266, -1.677793],
-  ["nor", "Rouen", 49.443232, 1.099971], ["bfc", "Dijon", 47.322047, 5.04148],
-  ["cvl", "Tours", 47.394144, 0.68484], ["cor", "Ajaccio", 41.919229, 8.738635],
-  ["paca", "Marseille", 43.296482, 5.36978],
+  // [salon, ville cherchée, latitude, longitude, rayon gardé (km)] : plusieurs villes par région,
+  // rayons choisis pour ne pas déborder sur la région voisine.
+  ["idf", "Paris", 48.856614, 2.352222, 70],
+  ["ara", "Lyon", 45.757549, 4.829766, 70], ["ara", "Grenoble", 45.188529, 5.724524, 50],
+  ["ara", "Clermont-Ferrand", 45.777222, 3.087025, 60], ["ara", "Annecy", 45.899247, 6.129384, 40],
+  ["occ", "Toulouse", 43.604652, 1.444209, 80], ["occ", "Montpellier", 43.610769, 3.876716, 50],
+  ["occ", "Perpignan", 42.698684, 2.895622, 40],
+  ["naq", "Bordeaux", 44.837789, -0.57918, 80], ["naq", "Limoges", 45.833619, 1.261105, 60],
+  ["naq", "Pau", 43.29551, -0.370797, 50], ["naq", "Bayonne", 43.492949, -1.474841, 40],
+  ["naq", "Poitiers", 46.580224, 0.340375, 50], ["naq", "La Rochelle", 46.160329, -1.151139, 50],
+  ["hdf", "Lille", 50.62925, 3.057256, 60], ["hdf", "Amiens", 49.894067, 2.295753, 50],
+  ["ge", "Strasbourg", 48.573405, 7.752111, 70], ["ge", "Nancy", 48.692054, 6.184417, 40],
+  ["ge", "Metz", 49.119309, 6.175716, 40], ["ge", "Reims", 49.258329, 4.031696, 50],
+  ["ge", "Mulhouse", 47.750839, 7.335888, 30],
+  ["pdl", "Nantes", 47.218371, -1.553621, 70], ["pdl", "Angers", 47.478419, -0.563166, 40],
+  ["pdl", "Le Mans", 48.00611, 0.199556, 50],
+  ["bre", "Rennes", 48.117266, -1.677793, 70], ["bre", "Brest", 48.390394, -4.486076, 60],
+  ["nor", "Rouen", 49.443232, 1.099971, 60], ["nor", "Caen", 49.182863, -0.370679, 60],
+  ["nor", "Le Havre", 49.49437, 0.107929, 30],
+  ["bfc", "Dijon", 47.322047, 5.04148, 60], ["bfc", "Besançon", 47.237829, 6.024054, 50],
+  ["cvl", "Tours", 47.394144, 0.68484, 60], ["cvl", "Orléans", 47.902964, 1.909251, 60],
+  ["cor", "Ajaccio", 41.919229, 8.738635, 80], ["cor", "Bastia", 42.697283, 9.450881, 60],
+  ["paca", "Marseille", 43.296482, 5.36978, 80], ["paca", "Avignon", 43.949317, 4.805528, 30],
 ];
+const CITIES_PER_ROUND = 2; // villes cherchées à chaque tour « magasins » (un tour sur trois)
 
 // Salon de région d'une Fnac (alertes magasin). Les Fnac vues depuis Cannes vont du 06 à Marseille.
 const ZONE_OF = [
@@ -148,12 +165,13 @@ async function checkAll() {
     const { regionIdx = 0, searchMode = null, cycle = 0 } = await chrome.storage.local.get(["regionIdx", "searchMode", "cycle"]);
     // Stock en ligne à chaque tour (chaque minute) ; stock magasin et régions un tour sur trois.
     const withStores = cycle % 3 === 0;
-    const [rkey, rterm, rlat, rlon] = FNAC_REGIONS[regionIdx % FNAC_REGIONS.length];
+    const cities = [...Array(CITIES_PER_ROUND).keys()].map((i) => FNAC_REGIONS[(regionIdx + i) % FNAC_REGIONS.length])
+      .map(([key, term, lat, lon, radius]) => ({ key, term, lat, lon, radius }));
     let mode = searchMode;
     for (const url of products) {
       let r;
       try {
-        r = await readProduct(url, withStores ? { key: rkey, term: rterm, lat: rlat, lon: rlon } : null, mode, withStores);
+        r = await readProduct(url, withStores ? cities : null, mode, withStores);
       } catch (e) {
         r = { status: "erreur", error: String(e) };
       }
@@ -182,14 +200,13 @@ async function checkAll() {
       const storeRank = { rupture: 0, inconnu: 0, arrivage: 1, en_stock: 2 };
       // Magasins de la région du tour : rangés dans son salon.
       let seen = r.stores ? r.stores.map((s) => ({ ...s, zone: zoneOf(s.name) })) : null;
-      if (r.region && r.region.stores) {
-        if (r.region.mode != null) mode = r.region.mode; // format de recherche qui marche : gardé
+      for (const reg of r.regions || []) {
+        if (!reg.stores) continue;
+        // La Fnac renvoie aussi des magasins lointains (52 pour Paris) : on garde ceux du rayon de la ville.
         const names = new Set((seen || []).map((s) => s.name));
-        // La Fnac renvoie aussi des magasins lointains (52 pour Paris) : on garde ceux à moins de 100 km.
-        const near = r.region.stores.filter((s) => !names.has(s.name) && (s.distanceKm == null || s.distanceKm <= 100));
-        seen = (seen || []).concat(near.map((s) => ({ ...s, zone: rkey })));
+        const near = reg.stores.filter((s) => !names.has(s.name) && (s.distanceKm == null || s.distanceKm <= reg.radius));
+        seen = (seen || []).concat(near.map((s) => ({ ...s, zone: reg.key })));
       }
-      if (r.region && !r.region.stores && mode != null) mode = null; // format devenu invalide : on réessaiera tout
       let merged = null;
       if (seen) {
         // Tous les magasins suivis : alerte pour ceux qui passent en stock (ou en arrivage). Un
@@ -218,19 +235,20 @@ async function checkAll() {
       state[url] = {
         status: r.status, storeStatus: r.storeStatus, storeName: r.storeName, name,
         web: r.web, storeText: r.storeText, source: r.source, diag: r.diag, stores: merged || prev.stores, at: new Date().toISOString(),
-        region: r.region ? { key: r.region.key, term: r.region.term, error: r.region.error || null,
-          n: r.region.stores ? r.region.stores.filter((x) => x.distanceKm == null || x.distanceKm <= 100).length : 0,
-          all: r.region.stores ? r.region.stores.length : 0,
-          rayon: r.region.stores ? r.region.stores.filter((x) => x.status === "en_stock" && (x.distanceKm == null || x.distanceKm <= 100)).length : 0 } : prev.region || null,
+        region: r.regions ? r.regions.map((reg) => ({ key: reg.key, term: reg.term, error: reg.error || null,
+          n: reg.stores ? reg.stores.filter((x) => x.distanceKm == null || x.distanceKm <= reg.radius).length : 0,
+          rayon: reg.stores ? reg.stores.filter((x) => x.status === "en_stock" && (x.distanceKm == null || x.distanceKm <= reg.radius)).length : 0,
+          radius: reg.radius })) : prev.region || null,
       };
       report.push(`${name}\n   en ligne : ${r.web ? `${r.web} → ${LABEL[r.status] || r.status}` : LABEL[r.status]}\n   ` +
         (r.stores ? r.stores.map((s) => `Fnac ${s.name} : ${s.text}`).join("\n   ") : `${r.storeName || "magasin"} : ${r.storeText || "—"}`) +
-        (r.region ? `\n   région ${r.region.key} (${r.region.term}) : ` + (r.region.stores
-          ? `${r.region.stores.length} Fnac, ${r.region.stores.filter((s) => s.status === "en_stock").length} en rayon`
-          : `recherche impossible (${r.region.error || "?"})`) : ""));
+        (r.regions ? r.regions.map((reg) => `\n   ${reg.key} (${reg.term}) : ` + (reg.stores
+          ? `${reg.stores.filter((x) => x.distanceKm == null || x.distanceKm <= reg.radius).length} Fnac, ` +
+            `${reg.stores.filter((x) => x.status === "en_stock" && (x.distanceKm == null || x.distanceKm <= reg.radius)).length} en rayon`
+          : `recherche impossible (${reg.error || "?"})`)).join("") : ""));
       await sleep(1000 + Math.random() * 1500);
     }
-    await chrome.storage.local.set({ state, regionIdx: regionIdx + (withStores ? 1 : 0), searchMode: mode, cycle: cycle + 1 });
+    await chrome.storage.local.set({ state, regionIdx: regionIdx + (withStores ? CITIES_PER_ROUND : 0), searchMode: mode, cycle: cycle + 1 });
     return report;
   } finally {
     running = false;

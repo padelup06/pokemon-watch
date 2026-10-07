@@ -103,22 +103,28 @@ async function pokewatchExtract(region = null, searchMode = null, withStores = t
         const list = parseStores(await r.text());
         if (list.length) result.stores = list;
       }
-      // Magasins d'une autre région : même recherche que la case « Trouver un magasin » du panneau
+      // Magasins d'autres régions : même recherche que la case « Trouver un magasin » du panneau
       // (format relevé par l'utilisateur le 7/10 : ville + coordonnées GPS, formulaire classique).
       if (region) {
-        const params = new URLSearchParams({
-          inputValue: region.term.toLowerCase(), latitude: String(region.lat), longitude: String(region.lon),
-          prid, catalog: "1", onShlef: "false", isRetreatOneHour: "false", formId: formid,
-          offerref: "00000000-0000-0000-0000-000000000000",
-        });
-        result.region = { key: region.key, term: region.term, stores: null, mode: 0 };
-        const rr = await fetch("/nav/api/StorePickup/SearchStore", {
-          method: "POST", body: params.toString(), credentials: "include",
-          headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-Requested-With": "XMLHttpRequest" },
-        });
-        const list = rr.ok ? parseStores(await rr.text()) : [];
-        if (list.length) result.region.stores = list;
-        else result.region.error = `HTTP ${rr.status}, aucun magasin dans la réponse`;
+        result.regions = [];
+        for (const city of [].concat(region)) {
+          const params = new URLSearchParams({
+            inputValue: city.term.toLowerCase(), latitude: String(city.lat), longitude: String(city.lon),
+            prid, catalog: "1", onShlef: "false", isRetreatOneHour: "false", formId: formid,
+            offerref: "00000000-0000-0000-0000-000000000000",
+          });
+          const entry = { ...city, stores: null };
+          try {
+            const rr = await fetch("/nav/api/StorePickup/SearchStore", {
+              method: "POST", body: params.toString(), credentials: "include",
+              headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-Requested-With": "XMLHttpRequest" },
+            });
+            const list = rr.ok ? parseStores(await rr.text()) : [];
+            if (list.length) entry.stores = list;
+            else entry.error = `HTTP ${rr.status}, aucun magasin dans la réponse`;
+          } catch (e) { entry.error = String(e); }
+          result.regions.push(entry);
+        }
       }
     }
   } catch (e) { /* le bloc d'achat suffit si cet appel échoue */ }

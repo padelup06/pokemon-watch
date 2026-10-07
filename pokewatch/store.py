@@ -71,6 +71,8 @@ class Store:
         for col in ("restock", "found_url"):
             if col not in cols:
                 self.db.execute(f"ALTER TABLE products ADD COLUMN {col} TEXT")
+        if "zone" not in {r[1] for r in self.db.execute("PRAGMA table_info(store_stock)")}:
+            self.db.execute("ALTER TABLE store_stock ADD COLUMN zone TEXT")
         if "last_check" not in {r[1] for r in self.db.execute("PRAGMA table_info(searches)")}:
             self.db.execute("ALTER TABLE searches ADD COLUMN last_check TEXT")
         self.db.commit()
@@ -153,13 +155,13 @@ class Store:
             if st.code and _RANK[st.code] > _RANK[old_code]:
                 newly.append(st)
             self.db.execute(
-                """INSERT INTO store_stock (url, store_id, store_name, distance_km, in_stock, label, last_check, last_change)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """INSERT INTO store_stock (url, store_id, store_name, distance_km, in_stock, label, last_check, last_change, zone)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(url, store_id) DO UPDATE SET store_name = excluded.store_name,
                      distance_km = excluded.distance_km, in_stock = excluded.in_stock, label = excluded.label,
-                     last_check = excluded.last_check,
+                     last_check = excluded.last_check, zone = excluded.zone,
                      last_change = CASE WHEN ? THEN excluded.last_change ELSE store_stock.last_change END""",
-                (url, st.store_id, st.name, st.distance_km, st.code, st.label, ts, ts, changed),
+                (url, st.store_id, st.name, st.distance_km, st.code, st.label, ts, ts, getattr(st, "zone", ""), changed),
             )
             if changed and not first_time and (old is not None or st.code):
                 self.db.execute(

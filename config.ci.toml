@@ -16,6 +16,14 @@ watchlist_file = "produits.txt"  # vos produits prioritaires, aussi vérifiés i
 # (La Grande Récré Nice, Cagnes, Cannes La Bocca ; JouéClub Nice x2, Monaco, Antibes, Grasse, Mandelieu)
 code_postal = "06000"
 rayon_km = 45
+# Zones surveillées en magasin. Chaque zone peut avoir son salon Discord (secret GitHub
+# POKEWATCH_ZONE_WEBHOOKS, une ligne « 06=https://discord.com/api/webhooks/… » par zone) ;
+# sans salon dédié, ses alertes vont dans le salon principal. Pour ajouter une région :
+#   [[settings.zones]]
+#   name = "83"
+#   code_postal = "83000"
+#   rayon_km = 40
+zones = [{ name = "06", code_postal = "06000", rayon_km = 45 }]
 
 # Récapitulatif Discord chaque matin (heure de Paris) et alerte si le PC ne tourne plus
 recap_hour = 9

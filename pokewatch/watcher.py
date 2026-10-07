@@ -43,6 +43,11 @@ def load_config(path: str) -> dict:
     for env, key in ENV_OVERRIDES.items():
         if os.environ.get(env):
             alerts[key] = os.environ[env]
+    # Secret GitHub POKEWATCH_ZONE_WEBHOOKS : une ligne par zone, « 06=https://discord.com/api/webhooks/… »
+    for line in os.environ.get("POKEWATCH_ZONE_WEBHOOKS", "").splitlines():
+        if "=" in line:
+            zone, hook = line.split("=", 1)
+            alerts.setdefault("zone_webhooks", {})[zone.strip()] = hook.strip()
     settings = cfg["settings"]
     if os.environ.get("POKEWATCH_CODE_POSTAL"):
         settings["code_postal"] = os.environ["POKEWATCH_CODE_POSTAL"]
@@ -133,6 +138,14 @@ class Watcher:
         self.location = s.get("code_postal") or s.get("ville")
         self.radius_km = int(s.get("rayon_km", 30))
         self._coords: tuple[float, float] | None = None
+        # Zones surveillées en magasin : [[settings.zones]] name / code_postal / rayon_km ;
+        # à défaut, une seule zone (code_postal / rayon_km).
+        zones = s.get("zones") or ([{"name": "", "code_postal": self.location, "rayon_km": self.radius_km}] if self.location else [])
+        self.zones = [
+            {"name": str(z.get("name", "")), "location": str(z.get("code_postal") or z.get("ville")),
+             "radius": int(z.get("rayon_km", self.radius_km)), "coords": None}
+            for z in zones
+        ]
         self.store_interval = float(s.get("store_check_seconds", 0))
         self.store_backoff = float(s.get("store_error_pause_seconds", 300))
         self._store_last: dict[str, float] = {}
@@ -213,7 +226,7 @@ class Watcher:
         # Code-barres noté dans le libellé (« … EAN 0196… ») : stock magasin lisible même
         # sans fiche publiée (JouéClub, La Grande Récré).
         ean = label_ean(label) if retailer.key in PROXIMIS_RETAILERS else None
-        if self.location and retailer.key in STORE_RETAILERS and (av.status != UNKNOWN or ean):
+        if self.zones and retailer.key in STORE_RETAILERS and (av.status != UNKNOWN or ean):
             self.check_stores(url, retailer, name, html, ean)
 
     def check_ean_search(self, url: str, label: str | None) -> None:
@@ -269,12 +282,17 @@ class Watcher:
             return
         self._store_last[url] = now
         try:
-            if retailer.key == "cultura":
-                stocks = cultura_store_stock(self.fetcher, url, str(self.location), self.radius_km)
-            else:
-                if self._coords is None:
-                    self._coords = geocode(str(self.location))
-                stocks = proximis_store_stock(url, *self._coords, radius_km=self.radius_km, html=html, ean=ean)
+            stocks, seen = [], set()
+            for z in self.zones:
+                if retailer.key == "cultura":
+                    found = cultura_store_stock(self.fetcher, url, z["location"], z["radius"])
+                else:
+                    found = proximis_store_stock(url, *self.zone_coords(z), radius_km=z["radius"], html=html, ean=ean)
+                for st in found:  # un magasin à cheval sur deux zones reste dans la première
+                    if st.store_id not in seen:
+                        seen.add(st.store_id)
+                        st.zone = z["name"]
+                        stocks.append(st)
         except FetchError as e:
             # Pause doublée à chaque échec consécutif (5, 10, 20, 40 min, puis 1 h) : un serveur
             # qui refuse une connexion (502 en série chez l'utilisateur) se débloque mieux sans
@@ -290,21 +308,31 @@ class Watcher:
         newly = self.store.record_store_stock(url, retailer.key, name, stocks)
         in_stock = sum(1 for s in stocks if s.in_stock)
         incoming = sum(1 for s in stocks if s.incoming and not s.in_stock)
-        print(f"    magasins à {self.radius_km} km : {in_stock}/{len(stocks)} en stock, {incoming} en arrivage")
+        print(f"    magasins ({', '.join(z['name'] or z['location'] for z in self.zones)}) : "
+              f"{in_stock}/{len(stocks)} en stock, {incoming} en arrivage")
         if newly:
             self.add_quantities(url, retailer, newly, html, ean)
-            self.notifier.send(format_store_alert(retailer.name, name, url, newly))
+            for zone in dict.fromkeys(st.zone for st in newly):  # une alerte par zone, dans son salon
+                self.notifier.send(format_store_alert(retailer.name, name, url, [st for st in newly if st.zone == zone]), zone)
+
+    def zone_coords(self, z: dict) -> tuple[float, float]:
+        if z["coords"] is None:
+            z["coords"] = geocode(z["location"])
+        return z["coords"]
 
     def add_quantities(self, url: str, retailer, stores, html: str | None, ean: str | None = None) -> None:
         """Nombre estimé d'exemplaires pour les magasins qui viennent de passer en stock."""
         targets = {s.store_id for s in stores if s.in_stock}
         if not targets or retailer.key not in QUANTITY_RETAILERS or not self.cfg["settings"].get("estimate_quantity", True):
             return
+        qty = {}
         try:
-            qty = proximis_estimate_quantities(url, *self._coords, self.radius_km, targets, html=html, ean=ean)
+            for z in self.zones:
+                ids = {s.store_id for s in stores if s.in_stock and s.zone == z["name"]}
+                if ids:
+                    qty.update(proximis_estimate_quantities(url, *self.zone_coords(z), z["radius"], ids, html=html, ean=ean))
         except FetchError as e:
             print(f"[{retailer.name}] quantités non estimées : {e}", flush=True)
-            return
         for s in stores:
             if s.store_id in qty:
                 s.qty, s.qty_capped = qty[s.store_id]

@@ -36,6 +36,8 @@ jobs:
           POKEWATCH_CODE_POSTAL: ${{ vars.POKEWATCH_CODE_POSTAL }}
           POKEWATCH_RAYON_KM: ${{ vars.POKEWATCH_RAYON_KM }}
           POKEWATCH_DISCORD_WEBHOOK: ${{ secrets.POKEWATCH_DISCORD_WEBHOOK }}
+          # Optionnel : un salon par zone, une ligne par zone « 06=https://discord.com/api/webhooks/… »
+          POKEWATCH_ZONE_WEBHOOKS: ${{ secrets.POKEWATCH_ZONE_WEBHOOKS }}
           POKEWATCH_TELEGRAM_TOKEN: ${{ secrets.POKEWATCH_TELEGRAM_TOKEN }}
           POKEWATCH_TELEGRAM_CHAT_ID: ${{ secrets.POKEWATCH_TELEGRAM_CHAT_ID }}
         run: python -m pokewatch -c config.ci.toml check

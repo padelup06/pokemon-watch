@@ -84,15 +84,19 @@ def _chunks(message: str, limit: int) -> list[str]:
 class Notifier:
     def __init__(self, cfg: dict) -> None:
         self.discord = cfg.get("discord_webhook") or None
+        # Un salon Discord par zone (ex. {"06": webhook, "83": webhook}) pour les alertes magasin ;
+        # le reste (en ligne, nouveautés, système) va dans le salon principal.
+        self.zone_webhooks = {str(k): v for k, v in (cfg.get("zone_webhooks") or {}).items() if v}
         self.tg_token = cfg.get("telegram_bot_token") or None
         self.tg_chat = cfg.get("telegram_chat_id") or None
 
-    def send(self, message: str) -> None:
-        print(f"\n🔔 {message}\n", flush=True)
-        if self.discord:
+    def send(self, message: str, zone: str | None = None) -> None:
+        print(f"\n🔔 {f'[{zone}] ' if zone else ''}{message}\n", flush=True)
+        hook = self.zone_webhooks.get(zone or "") or self.discord
+        if hook:
             try:
                 for part in _chunks(message, 1900):  # Discord refuse les messages de plus de 2000 caractères
-                    _post_json(self.discord, {"content": part})
+                    _post_json(hook, {"content": part})
             except Exception as e:
                 print(f"[discord] échec : {e}")
         if self.tg_token and self.tg_chat:

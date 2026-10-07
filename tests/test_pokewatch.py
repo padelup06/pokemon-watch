@@ -204,7 +204,7 @@ class DailyTests(unittest.TestCase):
                              {"url": "https://www.joueclub.fr/pokemon/x-0196214146297.html", "label": "Mini Tin (JC)"},
                              {"url": "https://www.e.leclerc/recherche?q=0196214146297", "label": "Mini Tin (Leclerc)"}]}
         w = Watcher(cfg)
-        w._coords = (43.7, 7.26)
+        w.zones[0]["coords"] = (43.7, 7.26)
         w.store.add_product(lgr, "lagranderecre")
         w.store.record(lgr, "lagranderecre", "rupture", "Mini Tin", None)
         from pokewatch.instore import StoreStock
@@ -226,6 +226,33 @@ class DailyTests(unittest.TestCase):
         self.assertIn("CAGNES : ~11 (-2 depuis hier)", text)
         self.assertIn("• Mini Tin (JC) (JouéClub)", text)
         self.assertIn("Pas encore de fiche : E.Leclerc (1)", text)
+
+    def test_store_alerts_routed_by_zone(self):
+        from pokewatch.instore import StoreStock
+        db = os.path.join(tempfile.mkdtemp(), "t.db")
+        u = "https://www.lagranderecre.fr/x/mini-tin.html"
+        cfg = {"settings": {"database": db, "zones": [{"name": "06", "code_postal": "06000", "rayon_km": 45},
+                                                      {"name": "83", "code_postal": "83000", "rayon_km": 40}],
+                            "estimate_quantity": False},
+               "alerts": {"discord_webhook": "main", "zone_webhooks": {"06": "hook06", "83": "hook83"}}, "watchlist": []}
+        w = Watcher(cfg)
+        for z, c in zip(w.zones, [(43.7, 7.26), (43.12, 5.93)]):
+            z["coords"] = c
+        answers = {(43.7, 7.26): [StoreStock("n", "NICE", 1, False, "Rupture")],
+                   (43.12, 5.93): [StoreStock("t", "TOULON", 2, False, "Rupture")]}
+        posted = []
+        with mock.patch("pokewatch.watcher.proximis_store_stock", side_effect=lambda u, lat, lon, **k: [
+                StoreStock(s.store_id, s.name, s.distance_km, s.in_stock, s.label) for s in answers[(lat, lon)]]), \
+             mock.patch("pokewatch.notify._post_json", side_effect=lambda hook, payload: posted.append((hook, payload["content"]))), \
+             mock.patch("builtins.print"):
+            w.store.add_product(u, "lagranderecre")
+            w.check_stores(u, RETAILERS["lagranderecre"], "Mini Tin")  # premier relevé : silencieux
+            answers[(43.12, 5.93)] = [StoreStock("t", "TOULON", 2, True, "En stock")]
+            w._store_last.clear()
+            w.check_stores(u, RETAILERS["lagranderecre"], "Mini Tin")
+        self.assertEqual([h for h, _ in posted], ["hook83"])
+        self.assertIn("TOULON", posted[0][1])
+        self.assertEqual({r["store_id"]: r["zone"] for r in w.store.db.execute("SELECT * FROM store_stock")}, {"n": "06", "t": "83"})
 
     def test_pc_down_then_up(self):
         import io, json as _json, time as _t

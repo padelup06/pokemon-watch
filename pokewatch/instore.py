@@ -52,6 +52,7 @@ class StoreStock:
     # Nombre estimé d'exemplaires (voir proximis_estimate_quantities) ; None = non estimé.
     qty: int | None = None
     qty_capped: bool = False  # True : au moins `qty`, la recherche s'est arrêtée au plafond
+    zone: str = ""  # zone (ex. "06") dont la recherche a trouvé ce magasin
 
     @property
     def code(self) -> int:

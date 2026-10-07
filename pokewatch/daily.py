@@ -19,7 +19,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from .fetch import FetchError
-from .instore import QUANTITY_RETAILERS, geocode, proximis_estimate_quantities
+from .instore import QUANTITY_RETAILERS, proximis_estimate_quantities
 from .retailers import retailer_for_url
 
 PARIS = ZoneInfo("Europe/Paris")
@@ -101,17 +101,26 @@ def maybe_send_recap(watcher, hour: int) -> None:
     # Fenêtre de 3 h : un passage GitHub manqué ou retardé ne fait pas sauter le récap.
     if not (hour <= now.hour < hour + 3) or watcher.store.get_meta("recap_date") == today:
         return
-    watcher.notifier.send(build_recap(watcher, now))
+    zones = watcher.zones if len(watcher.zones) > 1 else [None]
+    yesterday = json.loads(watcher.store.get_meta("recap_qty") or "{}")
+    today_qty: dict[str, int] = {}
+    for z in zones:  # plusieurs zones : un récap par zone, dans le salon de la zone
+        name = z["name"] if z else None
+        watcher.notifier.send(build_recap(watcher, now, z, yesterday, today_qty), name)
+    watcher.store.set_meta("recap_qty", json.dumps(today_qty))
     watcher.store.set_meta("recap_date", today)
 
 
-def build_recap(watcher, now: datetime) -> str:
+def build_recap(watcher, now: datetime, zone: dict | None = None, yesterday: dict | None = None,
+                today_qty: dict | None = None) -> str:
     from .watcher import ean_search, label_ean  # import local : watcher importe ce module
 
     store = watcher.store
-    yesterday = json.loads(store.get_meta("recap_qty") or "{}")
-    today_qty: dict[str, int] = {}
-    lines = [f"☀️ **Récap du matin** — {_JOURS[now.weekday()]} {now.day} {_MOIS[now.month - 1]}"]
+    save = yesterday is None
+    yesterday = json.loads(store.get_meta("recap_qty") or "{}") if yesterday is None else yesterday
+    today_qty = {} if today_qty is None else today_qty
+    where = f" — zone {zone['name']}" if zone else ""
+    lines = [f"☀️ **Récap du matin**{where} — {_JOURS[now.weekday()]} {now.day} {_MOIS[now.month - 1]}"]
     nothing: list[str] = []
     no_page: dict[str, int] = {}
     for p in watcher.cfg["watchlist"]:
@@ -127,18 +136,18 @@ def build_recap(watcher, now: datetime) -> str:
             url, row = row["found_url"], store.get(row["found_url"])
         name = _short(label or (row["name"] if row else None) or url, retailer.name)
         status = (row["status"] if row else None) or "inconnu"
-        stores = list(store.stores_in_stock(url))
-        incoming = list(store.stores_incoming(url))
+        in_zone = (lambda r: (r["zone"] or "") == zone["name"]) if zone else (lambda r: True)
+        stores = [r for r in store.stores_in_stock(url) if in_zone(r)]
+        incoming = [r for r in store.stores_incoming(url) if in_zone(r)]
         if not stores and not incoming and status not in ("en_stock", "precommande"):
             nothing.append(name)
             continue
         qty = {}
         if stores and retailer.key in QUANTITY_RETAILERS:
             try:
-                if watcher._coords is None:
-                    watcher._coords = geocode(str(watcher.location))
+                z = zone or watcher.zones[0]
                 qty = proximis_estimate_quantities(
-                    url, *watcher._coords, watcher.radius_km, {s["store_id"] for s in stores}, ean=label_ean(label)
+                    url, *watcher.zone_coords(z), z["radius"], {s["store_id"] for s in stores}, ean=label_ean(label)
                 )
             except FetchError as e:
                 print(f"[récap] quantités non estimées pour {name} : {e}")
@@ -161,5 +170,6 @@ def build_recap(watcher, now: datetime) -> str:
     if no_page:
         lines.append("Pas encore de fiche : " + ", ".join(f"{k} ({v})" for k, v in no_page.items()))
     lines.append("\n(Fnac : voir l'extension Chrome. Cultura, Carrefour, Cdiscount : suivis par le PC.)")
-    store.set_meta("recap_qty", json.dumps(today_qty))
+    if save:
+        store.set_meta("recap_qty", json.dumps(today_qty))
     return "\n".join(lines)

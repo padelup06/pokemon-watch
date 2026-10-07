@@ -394,15 +394,16 @@ class DiscordSetupTests(unittest.TestCase):
         perms = {o["id"]: o for o in chan["permission_overwrites"]}
         self.assertEqual(perms["1"]["deny"], str(1 << 10))  # @everyone ne voit pas
         self.assertEqual(perms[corse["id"]]["allow"], str((1 << 10) | (1 << 16)))
-        opts = st["onboarding"]["prompts"][0]["options"]
-        self.assertEqual(len(opts), 14)  # 06 gardé + 13 régions
-        self.assertEqual(opts[0]["id"], "o1")
+        prompts = st["onboarding"]["prompts"]
+        self.assertEqual([len(p["options"]) for p in prompts], [6, 8])  # sud (avec le 06) + nord
+        self.assertEqual(prompts[0]["id"], "p1")  # l'ancienne question est réutilisée
+        self.assertEqual(prompts[0]["options"][0]["id"], "o1")  # et la réponse 06 aussi
         # Deuxième lancement : rien de neuf, mêmes webhooks
         before = (len(st["roles"]), len(st["channels"]))
         again = discord_setup.setup(api, "1", log=lambda *a: None)
         self.assertEqual((len(st["roles"]), len(st["channels"])), before)
         self.assertEqual(again, hooks)
-        self.assertEqual(len(st["onboarding"]["prompts"][0]["options"]), 14)
+        self.assertEqual([len(p["options"]) for p in st["onboarding"]["prompts"]], [6, 8])
 
 
 class LeclercTests(unittest.TestCase):

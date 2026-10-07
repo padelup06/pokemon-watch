@@ -22,7 +22,6 @@ API = "https://discord.com/api/v10"
 VIEW, SEND, HISTORY, WEBHOOKS = 1 << 10, 1 << 11, 1 << 16, 1 << 29
 CATEGORY = "🗺️ Alertes régions"
 HOOK_NAME = "Pokémon Watch"
-QUESTION = "Quelle est ta région ?"
 ZONES = [("06", "06", "alertes-06", "🌴")] + [(k, label, salon, emoji) for k, label, salon, emoji, _ in REGIONS]
 
 
@@ -105,36 +104,44 @@ def setup(api, guild_id: str, log=print) -> dict[str, str]:
     return hooks
 
 
+# Discord limite le nombre de réponses d'une question posée avant l'entrée sur le serveur
+# (14 refusées) : deux questions, moitié sud (avec le 06) et moitié nord.
+GROUPS = [
+    ("Quelle est ta région ? (moitié sud)", ["06", "paca", "cor", "occ", "naq", "ara"]),
+    ("Quelle est ta région ? (moitié nord)", ["idf", "hdf", "ge", "nor", "bre", "pdl", "cvl", "bfc"]),
+]
+
+
 def _onboarding(api, guild_id: str, role_ids: dict[str, str], log) -> None:
     ob = api("GET", f"/guilds/{guild_id}/onboarding")
     prompts = ob.get("prompts", [])
-    prompt = next((p for p in prompts if "région" in (p.get("title") or "").lower()), None)
-    if prompt is None:
-        prompt = {"id": _snowflake(0), "type": 0, "title": QUESTION, "options": [],
-                  "single_select": False, "required": True, "in_onboarding": True}
-        prompts.append(prompt)
-    have = {rid for o in prompt.get("options", []) for rid in o.get("role_ids", [])}
-    options = [
-        {"id": o["id"], "title": o["title"], "description": o.get("description") or "",
-         "role_ids": o.get("role_ids", []), "channel_ids": o.get("channel_ids", []),
-         **({"emoji_name": o["emoji"]["name"]} if (o.get("emoji") or {}).get("name") else {})}
-        for o in prompt.get("options", [])
-    ]
-    added = 0
-    for i, (key, label, _salon, emoji) in enumerate(ZONES, start=1):
-        if role_ids[key] in have:
-            continue
-        options.append({"id": _snowflake(i), "title": "06 – Alpes-Maritimes" if key == "06" else label,
-                        "description": "", "role_ids": [role_ids[key]], "channel_ids": [], "emoji_name": emoji})
-        added += 1
-    prompt["options"] = options
+    regional = [p for p in prompts if "région" in (p.get("title") or "").lower()]
+    others = [p for p in prompts if p not in regional]
+    old_opts = {rid: o for p in regional for o in p.get("options", []) for rid in o.get("role_ids", [])}
+    info = {key: (label, emoji) for key, label, _salon, emoji in ZONES}
+    n = 0
+    new_prompts = []
+    for i, (title, keys) in enumerate(GROUPS):
+        existing = next((p for p in regional if p.get("title") == title), None) or (regional[i] if i < len(regional) else None)
+        options = []
+        for key in keys:
+            label, emoji = info[key]
+            o = old_opts.get(role_ids[key])
+            n += 1
+            options.append({
+                "id": o["id"] if o else _snowflake(n), "title": "06 – Alpes-Maritimes" if key == "06" else label,
+                "description": "", "role_ids": [role_ids[key]], "channel_ids": [], "emoji_name": emoji,
+            })
+        new_prompts.append({"id": existing["id"] if existing else _snowflake(100 + i), "type": 0, "title": title,
+                            "options": options, "single_select": False, "required": False, "in_onboarding": True})
     clean = [{k: p[k] for k in ("id", "type", "title", "options", "single_select", "required", "in_onboarding") if k in p}
-             for p in prompts]
+             for p in others] + new_prompts
     api("PUT", f"/guilds/{guild_id}/onboarding", {
         "prompts": clean, "default_channel_ids": ob.get("default_channel_ids", []),
         "enabled": ob.get("enabled", True), "mode": ob.get("mode", 0),
     })
-    log(f"Question d'accueil « {prompt['title']} » : {added} région(s) ajoutée(s), {len(options)} au total.")
+    log("Questions d'accueil : « moitié sud » (06, PACA, Corse, Occitanie, Nouvelle-Aquitaine, "
+        "Auvergne-Rhône-Alpes) et « moitié nord » (les 8 autres régions).")
 
 
 def main() -> int:

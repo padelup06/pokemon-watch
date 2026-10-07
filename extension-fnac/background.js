@@ -148,7 +148,7 @@ async function checkAll() {
         status: r.status, storeStatus: r.storeStatus, storeName: r.storeName, name,
         web: r.web, storeText: r.storeText, source: r.source, diag: r.diag, stores: r.stores, at: new Date().toISOString(),
       };
-      report.push(`${name}\n   en ligne : ${r.web || LABEL[r.status]}\n   ` +
+      report.push(`${name}\n   en ligne : ${r.web ? `${r.web} → ${LABEL[r.status] || r.status}` : LABEL[r.status]}\n   ` +
         (r.stores ? r.stores.map((s) => `Fnac ${s.name} : ${s.text}`).join("\n   ") : `${r.storeName || "magasin"} : ${r.storeText || "—"}`));
       await sleep(3000 + Math.random() * 4000);
     }

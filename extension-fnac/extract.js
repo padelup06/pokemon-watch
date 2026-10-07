@@ -11,6 +11,8 @@ async function pokewatchExtract() {
   const pokewatchClassify = function (text, kind) {
     const t = (text || "").toLowerCase();
     if (!t) return "inconnu";
+    // « En stock vendeur partenaire » : vendu par un tiers (marketplace), pas par la Fnac.
+    if (kind === "web" && /partenaire|marketplace|vendeur tiers/.test(t)) return "rupture";
     if (/épuisé|epuise|indisponible|rupture|plus disponible|non disponible/.test(t)) return "rupture";
     if (/précommande|precommande|pré-commande|disponible le|à paraître|a paraitre/.test(t)) return "precommande";
     if (kind === "store" && /sous \d+|jours|à partir du|a partir du|commande/.test(t)) return "arrivage";

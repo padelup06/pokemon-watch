@@ -15,12 +15,13 @@ https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-2-boosters-evoli-0196
 https://www.joueclub.fr/pokemon/pokemon-bundle-6-boosters-0196214145221.html | Bundle 6 boosters
 # Lot de 2 tripacks : pas encore de fiche JouéClub, mais leurs magasins le connaissent (stock magasin par code-barres)
 https://www.joueclub.fr/pokemon/?ean=0196214144972 | 30e anniv. — Lot de 2 tripacks (JouéClub) — EAN 0196214144972
-# Pokébox, Coffrets Mew / Mewtwo : pas encore de fiche JouéClub, mais leurs magasins les connaissent (stock magasin par code-barres)
+# Pokébox, Coffrets Mew / Mewtwo, Règne Delta : pas encore de fiche JouéClub, mais leurs magasins les connaissent (stock magasin par code-barres)
 https://www.joueclub.fr/pokemon/?ean=0196214146976 | Pokébox Nymphali-ex (JouéClub) — EAN 0196214146976
 https://www.joueclub.fr/pokemon/?ean=0196214147034 | Pokébox Amphinobi-ex (JouéClub) — EAN 0196214147034
 https://www.joueclub.fr/pokemon/?ean=0196214146907 | Pokébox (code commun Nymphali/Amphinobi) (JouéClub) — EAN 0196214146907
 https://www.joueclub.fr/pokemon/?ean=0196214145450 | Coffret Mew (JouéClub) — EAN 0196214145450
 https://www.joueclub.fr/pokemon/?ean=0196214145511 | Coffret Mewtwo (JouéClub) — EAN 0196214145511
+https://www.joueclub.fr/pokemon/?ean=0196214143913 | Règne Delta (ME06) — ETB 56,99 €, sortie 6/11 (JouéClub) — EAN 0196214143913
 
 # La Grande Récré — 30e anniversaire
 # Le 5 octobre 2026 : Mini Tin en rupture en ligne mais EN STOCK à Nice et Cagnes ; les 5 autres
@@ -50,6 +51,7 @@ https://www.cultura.com/search/results?search_query=0196214147034 | Pokébox Amp
 https://www.cultura.com/search/results?search_query=0196214146907 | Pokébox (code commun Nymphali/Amphinobi) (Cultura)
 https://www.cultura.com/search/results?search_query=0196214145450 | Coffret Mew (Cultura)
 https://www.cultura.com/search/results?search_query=0196214145511 | Coffret Mewtwo (Cultura)
+https://www.cultura.com/search/results?search_query=0196214143913 | Règne Delta (ME06) — ETB 56,99 €, sortie 6/11 (Cultura)
 
 # E.Leclerc — recherche par code-barres : alerte « fiche en ligne » dès que Leclerc publie la
 # fiche, puis suivi du stock en ligne vendu par Leclerc (retrait gratuit en magasin).
@@ -66,6 +68,7 @@ https://www.e.leclerc/recherche?q=0196214147034 | Pokébox Amphinobi-ex (Leclerc
 https://www.e.leclerc/recherche?q=0196214146907 | Pokébox (code commun Nymphali/Amphinobi) (Leclerc)
 https://www.e.leclerc/recherche?q=0196214145450 | Coffret Mew (Leclerc)
 https://www.e.leclerc/recherche?q=0196214145511 | Coffret Mewtwo (Leclerc)
+https://www.e.leclerc/recherche?q=0196214143913 | Règne Delta (ME06) — ETB 56,99 €, sortie 6/11 (Leclerc)
 
 # Carrefour — recherche par code-barres (PC uniquement : site protégé, fenêtre de navigateur).
 https://www.carrefour.fr/s?q=0196214147225 | 30e anniv. — Coffret Collection Poster (Carrefour)
@@ -81,6 +84,7 @@ https://www.carrefour.fr/s?q=0196214147034 | Pokébox Amphinobi-ex (Carrefour)
 https://www.carrefour.fr/s?q=0196214146907 | Pokébox (code commun Nymphali/Amphinobi) (Carrefour)
 https://www.carrefour.fr/s?q=0196214145450 | Coffret Mew (Carrefour)
 https://www.carrefour.fr/s?q=0196214145511 | Coffret Mewtwo (Carrefour)
+https://www.carrefour.fr/s?q=0196214143913 | Règne Delta (ME06) — ETB 56,99 €, sortie 6/11 (Carrefour)
 
 # Cdiscount — fiches officielles (adresse finissant par pok196214…), PC uniquement : site protégé.
 # La recherche par code-barres de Cdiscount ne trouve pas ces fiches : ajoutez-les à la main.

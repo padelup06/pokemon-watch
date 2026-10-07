@@ -8,7 +8,7 @@ echo.
 (
 python -m pokewatch test "https://www.carrefour.fr/s?q=pokemon%%20coffret" --visible
 echo.
-python -m pokewatch test "https://www.carrefour.fr/s?q=0196214146297" --visible
+python -m pokewatch test "https://www.carrefour.fr/p/coffret-pokemon-collection-illustration-victini-asmodee-0196214112612" --visible
 ) > test-carrefour.txt 2>&1
 type test-carrefour.txt
 echo.

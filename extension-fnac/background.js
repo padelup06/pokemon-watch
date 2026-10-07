@@ -38,7 +38,7 @@ chrome.alarms.onAlarm.addListener((a) => {
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg === "defaults") reply(DEFAULTS.products);
   if (msg === "reschedule") schedule().then(() => reply(true));
-  if (msg === "check-now") checkAll().then(reply, (e) => reply(`Erreur : ${e}`));
+  if (msg === "check-now") checkAll(true).then(reply, (e) => reply(`Erreur : ${e}`));
   if (msg === "test-discord") {
     (async () => {
       const main = await sendDiscord("✅ Test Pokémon Watch — Fnac : les alertes en ligne arrivent bien ici.");
@@ -156,13 +156,20 @@ const BUYABLE = ["en_stock", "precommande"];
 const LABEL = { en_stock: "✅ EN STOCK", precommande: "🕒 PRÉCOMMANDE", rupture: "❌ rupture", inconnu: "❔ inconnu" };
 let running = false;
 
-async function checkAll() {
+async function checkAll(force = false) {
   if (running) return "Une vérification est déjà en cours : rouvrez cette fenêtre dans une minute pour voir le résultat.";
   running = true;
   try {
     const { products, state } = await settings();
     const report = [];
-    const { regionIdx = 0, searchMode = null, cycle = 0 } = await chrome.storage.local.get(["regionIdx", "searchMode", "cycle"]);
+    let { regionIdx = 0, searchMode = null, cycle = 0, block = null } =
+      await chrome.storage.local.get(["regionIdx", "searchMode", "cycle", "block"]);
+    // Vérification « humain » demandée : la Fnac nous freine. On s'arrête un moment au lieu
+    // d'insister (insister prolonge le blocage) ; « Vérifier maintenant » relance tout de suite.
+    if (block && !force && Date.now() < block.until) {
+      return [`Fnac en pause jusqu'à ${new Date(block.until).toLocaleTimeString("fr-FR")} (vérification « humain » demandée). ` +
+        "Ouvrez une fiche Fnac, validez la vérification, puis cliquez sur « Vérifier maintenant »."];
+    }
     // Stock en ligne à chaque tour (chaque minute) ; stock magasin et régions un tour sur trois.
     const withStores = cycle % 3 === 0;
     const cities = [...Array(CITIES_PER_ROUND).keys()].map((i) => FNAC_REGIONS[(regionIdx + i) % FNAC_REGIONS.length])
@@ -178,12 +185,21 @@ async function checkAll() {
       if (!r) r = { status: "erreur", error: "page non lue" };
       const prev = state[url] || {};
       if (r.status === "blocked") {
-        if (!prev.blockedNotified) {
-          await sendDiscord(`⚠️ La Fnac demande une vérification « humain » : ouvrez la page et validez-la.\n${url}`);
-          state[url] = Object.assign({}, prev, { blockedNotified: true });
+        // Un seul message par blocage (pas un par fiche ni par tour), puis pause croissante :
+        // 15 min, 30 min, puis 60 min tant que la vérification n'est pas faite.
+        const pauseMin = block ? Math.min(block.pauseMin * 2, 60) : 15;
+        if (!block) {
+          await sendDiscord(`⚠️ La Fnac demande une vérification « humain ». Surveillance Fnac en pause ${pauseMin} min.\n` +
+            `Ouvrez cette fiche dans Chrome, validez la vérification, puis cliquez sur « Vérifier maintenant » dans l'extension :\n${url}`);
         }
-        report.push(`${url} : vérification demandée par la Fnac`);
-        continue;
+        await chrome.storage.local.set({ state, block: { until: Date.now() + pauseMin * 60000, pauseMin } });
+        report.push(`${url} : vérification demandée par la Fnac — pause de ${pauseMin} min`);
+        return report;
+      }
+      if (block) {
+        await chrome.storage.local.remove("block");
+        await sendDiscord("✅ Fnac de nouveau lisible : surveillance Fnac reprise.");
+        block = null;
       }
       if (r.status === "erreur") {
         report.push(`${url} : ${r.error}`);

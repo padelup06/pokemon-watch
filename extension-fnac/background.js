@@ -5,6 +5,7 @@ importScripts("extract.js");
 
 const DEFAULTS = {
   webhook: "",
+  webhook06: "", // salon #alertes-06 : alertes magasin des Fnac du 06 et de Monaco (facultatif)
   intervalMinutes: 3,
   products: [
     "https://www.fnac.com/Cartes-a-collectionner-Pokemon-30A-Coffret-Dresseur-d-Elite/a23200296/w-4",
@@ -38,7 +39,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg === "reschedule") schedule().then(() => reply(true));
   if (msg === "check-now") checkAll().then(reply, (e) => reply(`Erreur : ${e}`));
   if (msg === "test-discord") {
-    sendDiscord("✅ Test Pokémon Watch — Fnac : les alertes arrivent bien ici.").then(reply, (e) => reply(`Erreur : ${e}`));
+    (async () => {
+      const main = await sendDiscord("✅ Test Pokémon Watch — Fnac : les alertes en ligne arrivent bien ici.");
+      const { webhook06 } = await settings();
+      const z = webhook06 ? await sendDiscord("✅ Test Pokémon Watch — Fnac : les alertes magasin du 06 arrivent bien ici.", true) : "non configuré";
+      return `Salon principal : ${main} — salon #alertes-06 : ${z}`;
+    })().then(reply, (e) => reply(`Erreur : ${e}`));
   }
   return true;
 });
@@ -70,11 +76,15 @@ async function readProduct(url) {
   }
 }
 
-async function sendDiscord(content) {
-  const { webhook } = await settings();
-  if (!webhook) return "pas de webhook";
+// Fnac des Alpes-Maritimes (et Monaco) : leurs alertes magasin vont dans le salon de région.
+const IN_06 = /cannes|cagnes|nice|monaco|antibes|grasse|menton|mandelieu|cap 3000|saint-laurent/i;
+
+async function sendDiscord(content, salon06 = false) {
+  const { webhook, webhook06 } = await settings();
+  const hook = (salon06 && webhook06) || webhook;
+  if (!hook) return "pas de webhook";
   try {
-    const r = await fetch(webhook, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
+    const r = await fetch(hook, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
     return r.ok ? "ok" : `erreur ${r.status}`;
   } catch (e) {
     return `envoi Discord impossible : ${e}`;
@@ -133,12 +143,17 @@ async function checkAll() {
         const better = prev.stores ? r.stores.filter((s) => (storeRank[s.status] || 0) > (storeRank[before[s.name]] || 0)) : [];
         if (better.length) {
           const head = better.some((s) => s.status === "en_stock") ? "🏬 EN STOCK EN MAGASIN" : "🚚 ARRIVAGE EN MAGASIN";
-          await sendDiscord(`${head} — Fnac\n${name}\n${better.map((s) => `  • Fnac ${s.name} : ${s.text}`).join("\n")}\n${url}`);
+          for (const in06 of [true, false]) { // 06 -> #alertes-06, les autres -> salon principal
+            const group = better.filter((s) => IN_06.test(s.name) === in06);
+            if (group.length) {
+              await sendDiscord(`${head} — Fnac\n${name}\n${group.map((s) => `  • Fnac ${s.name} : ${s.text}`).join("\n")}\n${url}`, in06);
+            }
+          }
           notify(`${head} : ${name} (${better.map((s) => s.name).join(", ")})`);
         }
       } else if (known && r.storeStatus && (storeRank[r.storeStatus] || 0) > (storeRank[prev.storeStatus] || 0)) {
         const head = r.storeStatus === "en_stock" ? "🏬 EN STOCK EN MAGASIN" : "🚚 ARRIVAGE EN MAGASIN";
-        await sendDiscord(`${head} — ${r.storeName || "Fnac"}\n${name}\n${r.storeText}\n${url}`);
+        await sendDiscord(`${head} — ${r.storeName || "Fnac"}\n${name}\n${r.storeText}\n${url}`, IN_06.test(r.storeName || ""));
         notify(`${head} (${r.storeName || "Fnac"}) : ${name}`);
       }
       if (!r.web && !r.source) {

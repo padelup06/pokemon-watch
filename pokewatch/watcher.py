@@ -326,13 +326,19 @@ class Watcher:
             print(f"[{retailer.name}] recherche {ean} : bloquée par la vérification Cloudflare (réessai au prochain passage)")
             return
         found = None
+        short = ean.lstrip("0") if ean.startswith("0") else ean  # Cdiscount : EAN sans le 0 de tête
+        final = getattr(self.fetcher, "last_url", None) if retailer.needs_browser else None
+        # Recherche d'un code-barres exact : certains sites ouvrent directement la fiche.
+        if final and final.split("?")[0] != url.split("?")[0] and retailer.product_url.match(final) \
+                and (ean in html or short in html):
+            found = final.split("?")[0].split("#")[0]
         # La page de résultats peut proposer d'autres produits (suggestions) : on ne retient
         # qu'une fiche dont la page contient bien le code-barres recherché.
-        for link in extract_product_links(html, url)[:4]:
+        for link in [] if found else extract_product_links(html, url)[:4]:
             try:
                 # Cdiscount écrit l'EAN sans le 0 de tête (…/f-120791604-pok196214141964.html).
                 page = self.fetcher.get(link, retailer.needs_browser)
-                if ean in page or (ean.startswith("0") and ean.lstrip("0") in page):
+                if ean in page or short in page:
                     found = link
                     break
             except FetchError:

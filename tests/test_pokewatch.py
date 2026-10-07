@@ -482,6 +482,20 @@ class SoftBlockTests(unittest.TestCase):
         self.assertEqual(w.store.get(u)["status"], "rupture")
 
 
+class DirectHitTests(unittest.TestCase):
+    def test_search_opening_product_page_directly(self):
+        db = os.path.join(tempfile.mkdtemp(), "t.db")
+        w = Watcher({"settings": {"database": db, "min_delay_seconds": 0, "max_delay_seconds": 0}, "alerts": {}, "watchlist": []})
+        search = "https://www.cdiscount.com/search/10/0196214146297.html"
+        fiche = "https://www.cdiscount.com/juniors/cartes/mini-tin-pokemon-30a/f-1220618-pok196214146297.html"
+        page = jsonld_page("InStock").replace("</body>", "réf. pok196214146297</body>")
+        w.fetcher.get = lambda url, needs_browser=False: page
+        w.fetcher._browser.last_url = fiche + "?mpos=1"
+        with mock.patch("builtins.print"):
+            w.check(search, "Mini Tin (Cdiscount)")
+        self.assertEqual(w.store.get(search)["found_url"], fiche)
+
+
 class LeclercTests(unittest.TestCase):
     def test_marketplace_offers_ignored(self):
         from pokewatch.retailers import RETAILERS

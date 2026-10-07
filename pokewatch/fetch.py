@@ -88,6 +88,7 @@ class BrowserFetcher:
         self._browser = None
         self._context = None
         self._page = None
+        self.last_url: str | None = None
 
     def _start(self) -> None:
         try:
@@ -141,6 +142,7 @@ class BrowserFetcher:
                 if not re.search(r"un instant|just a moment", page.title() or "", re.I):
                     break
                 page.wait_for_timeout(1000)
+            self.last_url = page.url  # adresse finale (une recherche peut ouvrir directement la fiche)
             return page.content()
         except Exception as e:
             raise FetchError(str(e)) from e
@@ -202,6 +204,11 @@ class Fetcher:
 
     def fetch_json(self, url: str, origin: str):
         return self._browser.fetch_json(url, origin)
+
+    @property
+    def last_url(self) -> str | None:
+        """Adresse finale de la dernière page ouverte dans le navigateur (après redirection)."""
+        return self._browser.last_url
 
     def close(self) -> None:
         self._browser.close()

@@ -137,6 +137,7 @@ class Watcher:
         self.store_backoff = float(s.get("store_error_pause_seconds", 300))
         self._store_last: dict[str, float] = {}
         self._store_pause: dict[str, float] = {}
+        self._store_fails: dict[str, int] = {}  # erreurs consécutives par enseigne
         # Recherches par code-barres (pages lourdes, produit pas encore en ligne) : espacées.
         self.ean_search_interval = float(s.get("ean_search_seconds", 0))
         self._ean_last: dict[str, float] = {}
@@ -275,9 +276,17 @@ class Watcher:
                     self._coords = geocode(str(self.location))
                 stocks = proximis_store_stock(url, *self._coords, radius_km=self.radius_km, html=html, ean=ean)
         except FetchError as e:
-            self._store_pause[retailer.key] = time.time() + self.store_backoff
-            print(f"[{retailer.name}] ⚠ magasins : {e} — stock magasin en pause {self.store_backoff // 60:.0f} min", flush=True)
+            # Pause doublée à chaque échec consécutif (5, 10, 20, 40 min, puis 1 h) : un serveur
+            # qui refuse une connexion (502 en série chez l'utilisateur) se débloque mieux sans
+            # être relancé toutes les 5 min. GitHub continue de relever le stock magasin.
+            fails = self._store_fails.get(retailer.key, 0) + 1
+            self._store_fails[retailer.key] = fails
+            pause = min(self.store_backoff * 2 ** (fails - 1), 3600)
+            self._store_pause[retailer.key] = time.time() + pause
+            print(f"[{retailer.name}] ⚠ magasins : {e} — stock magasin en pause {pause // 60:.0f} min", flush=True)
             return
+        if self._store_fails.pop(retailer.key, 0):
+            print(f"[{retailer.name}] magasins : de nouveau accessibles", flush=True)
         newly = self.store.record_store_stock(url, retailer.key, name, stocks)
         in_stock = sum(1 for s in stocks if s.in_stock)
         incoming = sum(1 for s in stocks if s.incoming and not s.in_stock)

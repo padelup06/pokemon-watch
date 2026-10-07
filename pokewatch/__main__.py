@@ -67,9 +67,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Échec de récupération : {e}")
             return 1
         if retailer.use_keywords:
-            av = parse_availability(html, retailer.in_stock_keywords, retailer.out_of_stock_keywords, retailer.own_seller)
+            av = parse_availability(html, retailer.in_stock_keywords, retailer.out_of_stock_keywords, retailer.own_seller, retailer.seller_marker)
         else:
-            av = parse_availability(html, seller=retailer.own_seller)
+            av = parse_availability(html, seller=retailer.own_seller, seller_marker=retailer.seller_marker)
         print(f"Enseigne : {retailer.name}\nProduit  : {av.name}\nStatut   : {av.status} (via {av.source or 'rien'})")
         print(f"Prix     : {av.price}")
         if not args.cp:
@@ -81,7 +81,7 @@ def main(argv: list[str] | None = None) -> int:
                 f2 = Fetcher(args.browser, headless=not args.visible)
                 try:
                     html2 = f2.get(links[0], retailer.needs_browser)
-                    av2 = parse_availability(html2, seller=retailer.own_seller)
+                    av2 = parse_availability(html2, seller=retailer.own_seller, seller_marker=retailer.seller_marker)
                     print(f"\nPremière fiche : {links[0]}\nProduit  : {av2.name}\nStatut   : {av2.status} (via {av2.source or 'rien'})\nPrix     : {av2.price}")
                 except FetchError as e:
                     print(f"Première fiche : échec ({e})")

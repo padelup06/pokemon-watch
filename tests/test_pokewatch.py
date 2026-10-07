@@ -510,6 +510,27 @@ class EanInLinkTests(unittest.TestCase):
         self.assertEqual(w.store.get(search)["found_url"], fiche)
 
 
+class CdiscountTests(unittest.TestCase):
+    def test_unnamed_seller_needs_page_marker(self):
+        from pokewatch.retailers import RETAILERS
+        r = RETAILERS["cdiscount"]
+        offer = '<script type="application/ld+json">{"@type":"Product","name":"Mini Tin","offers":{"@type":"Offer","price":"14.99","availability":"https://schema.org/InStock"}}</script>'
+        parse = lambda html: parse_availability(html, seller=r.own_seller, seller_marker=r.seller_marker)
+        self.assertEqual(parse(offer + "<p>Vendu par CARDS-SHOP et expédié par Cdiscount</p>").status, "rupture")
+        av = parse(offer + "<p>Vendu et expédié par Cdiscount</p>")
+        self.assertEqual((av.status, av.source), ("en_stock", "jsonld (vendeur : non indiqué)"))
+
+    def test_named_seller(self):
+        from pokewatch.retailers import RETAILERS
+        r = RETAILERS["cdiscount"]
+        page = lambda name: ('<script type="application/ld+json">{"@type":"Product","name":"Tin","offers":{"@type":"Offer",'
+                             '"availability":"https://schema.org/InStock","seller":{"name":"%s"}}}</script>' % name)
+        parse = lambda html: parse_availability(html, seller=r.own_seller, seller_marker=r.seller_marker).status
+        self.assertEqual(parse(page("Cdiscount")), "en_stock")
+        self.assertEqual(parse(page("Expédié par Cdiscount")), "rupture")
+        self.assertEqual(parse(page("POKE-STORE")), "rupture")
+
+
 class LeclercTests(unittest.TestCase):
     def test_sold_out_page_without_availability(self):
         html = ('<script type="application/ld+json">{"@type":"Product","name":"Mini Tin","offers":[{"@type":"Offer",'

@@ -14,6 +14,7 @@ parallel = true                   # une enseigne par fil : stock en ligne de cha
 jitter_seconds = 90
 min_delay_seconds = 2               # entre deux fiches d'une même enseigne (JouéClub freine en dessous)
 max_delay_seconds = 4
+retailer_delay_seconds = { joueclub = [8, 12] }  # JouéClub renvoie des pages « 429 » en dessous ; GitHub le relève aussi
 browser = "auto"                 # navigateur pour Cultura, accès direct pour JouéClub / La Grande Récré
 browser_visible = true
 browser_minimized = true         # fenêtre réduite dans la barre des tâches (ne pas la fermer)

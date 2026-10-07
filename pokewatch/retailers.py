@@ -34,6 +34,9 @@ class Retailer:
     # Nom du vendeur « maison » dans les offres schema.org : les offres des vendeurs
     # partenaires (marketplace) sont alors ignorées.
     own_seller: re.Pattern | None = None
+    # Texte de la fiche qui prouve que l'enseigne vend elle-même : sans lui, les offres
+    # schema.org sans nom de vendeur sont considérées comme venant de la marketplace.
+    seller_marker: re.Pattern | None = None
 
 
 _COMMON_IN = ["Ajouter au panier", "En stock", "Disponible en ligne", "Livraison à domicile"]
@@ -119,7 +122,9 @@ RETAILERS: dict[str, Retailer] = {
             needs_browser=True,  # Cloudflare : passe seulement dans la fenêtre de navigateur du PC
             use_keywords=False,
             # Surtout de la marketplace : seules les offres vendues par Cdiscount comptent.
-            own_seller=re.compile(r"cdiscount", re.I),
+            # « Expédié par Cdiscount » seul = vendeur partenaire stocké chez Cdiscount : ne compte pas.
+            own_seller=re.compile(r"^\s*cdiscount(?:\.com)?\s*$", re.I),
+            seller_marker=re.compile(r"vendu\s+et\s+exp[ée]di[ée]\s+par\s+cdiscount", re.I),
         ),
         Retailer(
             key="fnac",

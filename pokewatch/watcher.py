@@ -139,6 +139,8 @@ class Watcher:
         )
         self.notifier = Notifier(cfg["alerts"])
         self.delay = (float(s.get("min_delay_seconds", 2)), float(s.get("max_delay_seconds", 6)))
+        # Pause propre à une enseigne qui freine plus vite que les autres (ex. joueclub = [8, 12]).
+        self.retailer_delay = {k: (float(v[0]), float(v[1])) for k, v in s.get("retailer_delay_seconds", {}).items()}
         self.keywords = s.get("keywords", ["pokemon"])
         self.max_discovered = int(s.get("max_products_per_search", 40))
         # False : seuls vos produits (produits.txt / [[products]]) sont relevés ; les pages de
@@ -186,8 +188,9 @@ class Watcher:
         self.exclude_watchlist = bool(s.get("exclude_watchlist", False))
         self.watch_interval = float(s.get("watchlist_interval_seconds", 0))
 
-    def _pause(self) -> None:
-        time.sleep(random.uniform(*self.delay))
+    def _pause(self, url: str | None = None) -> None:
+        retailer = retailer_for_url(url) if url else None
+        time.sleep(random.uniform(*self.retailer_delay.get(retailer.key if retailer else "", self.delay)))
 
     def discover(self) -> None:
         for search in self.cfg["searches"]:
@@ -250,9 +253,9 @@ class Watcher:
                 print(f"[{retailer.name}] ⚠ {e} : {url}")
             return
         if retailer.use_keywords:
-            av = parse_availability(html, retailer.in_stock_keywords, retailer.out_of_stock_keywords, retailer.own_seller)
+            av = parse_availability(html, retailer.in_stock_keywords, retailer.out_of_stock_keywords, retailer.own_seller, retailer.seller_marker)
         else:
-            av = parse_availability(html, seller=retailer.own_seller)
+            av = parse_availability(html, seller=retailer.own_seller, seller_marker=retailer.seller_marker)
         name = label or av.name
         prev = self.store.get(url)
         if av.status == UNKNOWN and prev is not None and prev["status"] not in (None, "", UNKNOWN):
@@ -480,7 +483,7 @@ class Watcher:
     def run_watchlist(self) -> None:
         for p in self.cfg["watchlist"]:
             self.check(p["url"], p.get("label"))
-            self._pause()
+            self._pause(p["url"])
 
     def zone_silent(self, name: str) -> bool:
         """Pas d'alerte pour cette zone : premier passage, ou région sans salon Discord."""
@@ -507,7 +510,7 @@ class Watcher:
             urls += [u for u in sorted(self.store.known_urls()) if u not in configured and u not in skip]
         for url in urls:
             self.check(url, configured.get(url))
-            self._pause()
+            self._pause(url)
 
     def run_parallel(self, make_watcher=None, stop: threading.Event | None = None, cycles: int | None = None) -> None:
         """Un fil par enseigne : chaque site est interrogé à son propre rythme (pauses
@@ -532,7 +535,7 @@ class Watcher:
                             w.check(p["url"], p.get("label"))
                         except Exception as e:  # un site en panne ne doit pas arrêter les autres
                             print(f"⚠ {p['url']} : {e}", flush=True)
-                        w._pause()
+                        w._pause(p["url"])
                     done += 1
                     if cycles is None or done < cycles:
                         stop.wait(self.watch_interval + random.uniform(0, 5))

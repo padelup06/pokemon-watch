@@ -151,7 +151,9 @@ def _jsonld_image(blocks: list[str]) -> str | None:
     return None
 
 
-def _from_jsonld(blocks: list[str], seller: re.Pattern | None = None) -> Availability | None:
+def _from_jsonld(
+    blocks: list[str], seller: re.Pattern | None = None, keep_unnamed: bool = True
+) -> Availability | None:
     for raw in blocks:
         try:
             data = json.loads(raw.strip())
@@ -171,14 +173,18 @@ def _from_jsonld(blocks: list[str], seller: re.Pattern | None = None) -> Availab
             statuses = []
             price = None
             others = 0
+            sellers: list[str] = []
             for o in expanded:
                 if not isinstance(o, dict):
                     continue
                 # seller : seules comptent les offres de l'enseigne elle-même (pas sa marketplace) ;
-                # une offre sans vendeur indiqué est gardée.
-                if seller is not None and o.get("availability") and _seller_name(o) and not seller.search(_seller_name(o)):
-                    others += 1
-                    continue
+                # une offre sans vendeur indiqué est gardée, sauf si keep_unnamed est faux.
+                name = _seller_name(o)
+                if seller is not None and o.get("availability"):
+                    if (name and not seller.search(name)) or (not name and not keep_unnamed):
+                        others += 1
+                        continue
+                    sellers.append(name or "non indiqué")
                 if o.get("availability"):
                     statuses.append(_norm_schema(str(o["availability"])))
                 price = price or _to_price(o.get("price") or o.get("lowPrice"))
@@ -192,7 +198,8 @@ def _from_jsonld(blocks: list[str], seller: re.Pattern | None = None) -> Availab
             # Une seule offre dispo suffit pour considérer le produit achetable.
             for wanted in (IN_STOCK, PREORDER, OUT_OF_STOCK):
                 if wanted in statuses:
-                    return Availability(wanted, node.get("name"), price, "jsonld")
+                    source = f"jsonld (vendeur : {', '.join(dict.fromkeys(sellers))})" if sellers else "jsonld"
+                    return Availability(wanted, node.get("name"), price, source)
     return None
 
 
@@ -229,11 +236,17 @@ def parse_availability(
     in_stock_keywords: list[str] | None = None,
     out_of_stock_keywords: list[str] | None = None,
     seller: re.Pattern | None = None,
+    seller_marker: re.Pattern | None = None,
 ) -> Availability:
     scanner = _PageScanner()
     scanner.feed(html)
+    # seller_marker : texte visible prouvant que l'enseigne vend elle-même (« Vendu et expédié
+    # par Cdiscount ») ; sans lui, une offre schema.org sans vendeur nommé ne compte pas.
+    keep_unnamed = True
+    if seller_marker is not None:
+        keep_unnamed = bool(seller_marker.search(re.sub(r"\s+", " ", " ".join(scanner.text))))
     result = (
-        _from_jsonld(scanner.jsonld, seller)
+        _from_jsonld(scanner.jsonld, seller, keep_unnamed)
         or _from_meta(scanner.meta)
         or _from_keywords(" ".join(scanner.text), in_stock_keywords or [], out_of_stock_keywords or [])
         or Availability()

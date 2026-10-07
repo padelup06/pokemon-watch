@@ -39,6 +39,7 @@ class Availability:
     name: str | None = None
     price: float | None = None
     source: str = ""  # quelle méthode a tranché : jsonld / meta / keywords
+    image: str | None = None  # photo du produit (affichée sous les alertes Discord)
 
 
 class _PageScanner(HTMLParser):
@@ -129,6 +130,27 @@ def _seller_name(offer: dict) -> str:
     return str(seller or "")
 
 
+def _image(value) -> str | None:
+    """Champ schema.org « image » : texte, liste, ou objet ImageObject."""
+    if isinstance(value, list):
+        value = value[0] if value else None
+    if isinstance(value, dict):
+        value = value.get("url") or value.get("contentUrl")
+    return value if isinstance(value, str) and value.startswith("http") else None
+
+
+def _jsonld_image(blocks: list[str]) -> str | None:
+    for raw in blocks:
+        try:
+            data = json.loads(raw.strip())
+        except (json.JSONDecodeError, ValueError):
+            continue
+        for node in _walk(data):
+            if "product" in _types(node) and _image(node.get("image")):
+                return _image(node.get("image"))
+    return None
+
+
 def _from_jsonld(blocks: list[str], seller: re.Pattern | None = None) -> Availability | None:
     for raw in blocks:
         try:
@@ -215,4 +237,6 @@ def parse_availability(
     )
     if not result.name:
         result.name = (scanner.meta.get("og:title") or scanner.title or "").strip() or None
+    og = scanner.meta.get("og:image") or ""
+    result.image = _jsonld_image(scanner.jsonld) or (og if og.startswith("http") else None)
     return result

@@ -135,6 +135,32 @@ async function pokewatchExtract(region = null, searchMode = null) {
       }
     } catch (e) { /* bloc JSON-LD illisible */ }
   }
+  // Photo du produit (affichée sous les alertes Discord).
+  const og = doc.querySelector('meta[property="og:image"]') || document.querySelector('meta[property="og:image"]');
+  result.image = og && /^https?:/.test(og.content) ? og.content : null;
+  if (!result.image) {
+    for (const sc of doc.querySelectorAll('script[type="application/ld+json"]')) {
+      try {
+        const d = JSON.parse(sc.textContent);
+        for (const node of [].concat(d && d["@graph"] ? d["@graph"] : d)) {
+          let img = node && node.image;
+          if (Array.isArray(img)) img = img[0];
+          if (img && typeof img === "object") img = img.url || img.contentUrl;
+          if (typeof img === "string" && /^https?:/.test(img)) { result.image = img; break; }
+        }
+      } catch (e) { /* bloc illisible */ }
+      if (result.image) break;
+    }
+  }
+  if (!result.image && result.name) {
+    // Repli : photo de la galerie dont la légende reprend le nom du produit.
+    const key = result.name.toLowerCase().slice(0, 25);
+    for (const img of document.querySelectorAll("img[src], img[data-src]")) {
+      const src = img.getAttribute("src") || img.getAttribute("data-src") || "";
+      if (/^https?:/.test(src) && (img.alt || "").toLowerCase().includes(key)) { result.image = src; break; }
+    }
+  }
+
   result.diag = {
     url: location.href,
     titre: document.title.slice(0, 80),

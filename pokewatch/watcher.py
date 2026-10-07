@@ -207,7 +207,8 @@ class Watcher:
                 self.check(u)  # nom, prix et disponibilité pour une alerte utile
                 row = self.store.get(u)
                 self.notifier.send(
-                    format_alert("nouveau", retailer.name, row["name"], u, row["status"] or "inconnu", row["price"])
+                    format_alert("nouveau", retailer.name, row["name"], u, row["status"] or "inconnu", row["price"]),
+                    image=self.store.image(u),
                 )
                 self._pause()
 
@@ -248,14 +249,15 @@ class Watcher:
                   f"{prev['status']} — {name or url}", flush=True)
             return
         old = self.store.record(url, retailer.key, av.status, name, av.price)
+        self.store.set_image(url, av.image)
         print(f"{time.strftime('%H:%M:%S')} [{retailer.name}] {av.status:<11} ({av.source or '-'}) {name or url}", flush=True)
         # old == "" : premier relevé du produit, on enregistre sans alerter.
         if old and should_alert(old, av.status):
-            self.notifier.send(format_alert("stock", retailer.name, name, url, av.status, av.price))
+            self.notifier.send(format_alert("stock", retailer.name, name, url, av.status, av.price), image=av.image)
         if retailer.key in PROXIMIS_RETAILERS:
             restock = self.store.set_restock(url, proximis_restock(html))
             if restock and old:
-                self.notifier.send(format_restock_alert(retailer.name, name, url, restock))
+                self.notifier.send(format_restock_alert(retailer.name, name, url, restock), image=av.image)
         # Code-barres noté dans le libellé (« … EAN 0196… ») : stock magasin lisible même
         # sans fiche publiée (JouéClub, La Grande Récré).
         ean = label_ean(label) if retailer.key in PROXIMIS_RETAILERS else None
@@ -316,11 +318,11 @@ class Watcher:
         appeared = self.store.set_found(url, found)
         print(f"[{retailer.name}] recherche {ean} : {'fiche trouvée ' + found if found else 'aucune fiche'}")
         if found:
+            self.check(found, label)  # d'abord la fiche : nom, stock et photo pour l'alerte
             if appeared and not first:
                 self.notifier.send(
-                    f"🆕 FICHE EN LIGNE chez {retailer.name} : {label or ean}\n{found}"
+                    f"🆕 FICHE EN LIGNE chez {retailer.name} : {label or ean}\n{found}", image=self.store.image(found)
                 )
-            self.check(found, label)
 
     def check_stores(self, url: str, retailer, name: str | None, html: str | None = None, ean: str | None = None) -> None:
         now = time.time()
@@ -366,7 +368,8 @@ class Watcher:
         if newly:
             self.add_quantities(url, retailer, newly, html, ean)
             for zone in dict.fromkeys(st.zone for st in newly):  # une alerte par zone, dans son salon
-                self.notifier.send(format_store_alert(retailer.name, name, url, [st for st in newly if st.zone == zone]), zone)
+                self.notifier.send(format_store_alert(retailer.name, name, url, [st for st in newly if st.zone == zone]), zone,
+                                   image=self.store.image(url))
 
     def point_coords(self, pt: dict) -> tuple[float, float]:
         if pt["coords"] is None:

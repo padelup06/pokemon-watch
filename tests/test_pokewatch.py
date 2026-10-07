@@ -293,7 +293,7 @@ class DailyTests(unittest.TestCase):
                 return []
             return [StoreStock("p", "PARIS", 3, stock["paris"], "x"), StoreStock("q", "VERSAILLES", 20, True, "x")]
         sent = []
-        w.notifier.send = lambda m, zone=None: sent.append((zone, m))
+        w.notifier.send = lambda m, zone=None, **k: sent.append((zone, m))
         with mock.patch("pokewatch.watcher.proximis_store_stock", side_effect=answer), mock.patch("builtins.print"):
             w.store.add_product(u, "lagranderecre")
             w.store.record_store_stock(u, "lagranderecre", "X", [], {"06"})  # produit déjà suivi (06)
@@ -317,7 +317,7 @@ class DailyTests(unittest.TestCase):
         from pokewatch import daily
         w, _ = self.watcher()
         sent = []
-        w.notifier.send = sent.append
+        w.notifier.send = lambda m, *a, **k: sent.append(m)
         def ntfy(ts):
             body = "\n".join(_json.dumps({"time": t}) for t in ts).encode()
             return mock.patch.object(daily.urllib.request, "urlopen", return_value=io.BytesIO(body))
@@ -414,7 +414,7 @@ class FlappingTests(unittest.TestCase):
         pages = [jsonld_page("OutOfStock"), jsonld_page("InStock"), "<html>Trop de demandes</html>", jsonld_page("InStock")]
         w.fetcher.get = lambda url, needs_browser=False: pages.pop(0)
         sent = []
-        w.notifier.send = sent.append
+        w.notifier.send = lambda m, *a, **k: sent.append(m)
         with mock.patch("builtins.print"):
             for _ in range(4):
                 w.check(u, "Mini Tin")
@@ -434,6 +434,20 @@ class RateLimitTests(unittest.TestCase):
             w.check("https://www.e.leclerc/recherche?q=0196214147225")
             w.check("https://www.e.leclerc/recherche?q=0196214147102")
         self.assertEqual(len(calls), 1)  # après le 429, Leclerc est laissé tranquille
+
+
+class ImageTests(unittest.TestCase):
+    def test_image_found_and_sent_to_discord(self):
+        html = ('<script type="application/ld+json">{"@type":"Product","name":"Mini Tin","image":["https://img.example/tin.jpg"],'
+                '"offers":{"@type":"Offer","availability":"https://schema.org/InStock"}}</script>')
+        self.assertEqual(parse_availability(html).image, "https://img.example/tin.jpg")
+        self.assertEqual(parse_availability('<meta property="og:image" content="https://img.example/og.jpg">').image,
+                         "https://img.example/og.jpg")
+        from pokewatch.notify import Notifier
+        posted = []
+        with mock.patch("pokewatch.notify._post_json", side_effect=lambda h, p: posted.append(p)), mock.patch("builtins.print"):
+            Notifier({"discord_webhook": "h"}).send("✅ EN STOCK", image="https://img.example/tin.jpg")
+        self.assertEqual(posted, [{"content": "✅ EN STOCK", "embeds": [{"image": {"url": "https://img.example/tin.jpg"}}]}])
 
 
 class LeclercTests(unittest.TestCase):
@@ -471,7 +485,7 @@ class NewListingTests(unittest.TestCase):
         w.fetcher.get = lambda url, needs_browser=False: visited.append(url) or pages[url]
         w.check_stores = lambda *a, **k: None
         sent = []
-        w.notifier.send = sent.append
+        w.notifier.send = lambda m, *a, **k: sent.append(m)
         with mock.patch("builtins.print"):
             w.run_once()  # premier passage : silencieux
             pages[sm] = loc(old, plush, new)
@@ -538,7 +552,7 @@ class EanSearchTests(unittest.TestCase):
         w = Watcher(cfg)
         w.fetcher.get = lambda url, needs_browser=False: pages[url]
         sent = []
-        w.notifier.send = sent.append
+        w.notifier.send = lambda m, *a, **k: sent.append(m)
         with mock.patch("builtins.print"):
             w.check(search, "Coffret Poster")
             w.check(search, "Coffret Poster")
@@ -655,7 +669,7 @@ class StoreAndAlertTests(unittest.TestCase):
         w = Watcher(cfg)
         w.fetcher.get = lambda url, needs_browser=False: pages[url]
         sent = []
-        w.notifier.send = sent.append
+        w.notifier.send = lambda m, *a, **k: sent.append(m)
         with mock.patch("builtins.print"):
             w.run_once()
             self.assertEqual(sent, [])  # premier passage : base constituée sans alerte

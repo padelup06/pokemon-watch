@@ -114,14 +114,15 @@ function parseZoneHooks(text) {
   return hooks;
 }
 
-async function sendDiscord(content, zone = null) {
+async function sendDiscord(content, zone = null, image = null) {
   const { webhook, webhook06, zoneHooks } = await settings();
   const hooks = parseZoneHooks(zoneHooks);
   if (webhook06 && !hooks["06"]) hooks["06"] = webhook06;
   const hook = (zone && hooks[zone]) || webhook;
   if (!hook) return "pas de webhook";
   try {
-    const r = await fetch(hook, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) });
+    const payload = image ? { content, embeds: [{ image: { url: image } }] } : { content };
+    const r = await fetch(hook, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     return r.ok ? "ok" : `erreur ${r.status}`;
   } catch (e) {
     return `envoi Discord impossible : ${e}`;
@@ -173,7 +174,7 @@ async function checkAll() {
       const known = Boolean(prev.status); // premier relevé : on enregistre sans alerter
       if (known && !BUYABLE.includes(prev.status) && BUYABLE.includes(r.status)) {
         const price = r.price ? ` — ${r.price.toFixed(2)} €` : "";
-        await sendDiscord(`${LABEL[r.status]} EN LIGNE chez Fnac\n${name}${price}\n${url}`);
+        await sendDiscord(`${LABEL[r.status]} EN LIGNE chez Fnac\n${name}${price}\n${url}`, null, r.image);
         notify(`${LABEL[r.status]} en ligne : ${name}`);
       }
       const storeRank = { rupture: 0, inconnu: 0, arrivage: 1, en_stock: 2 };
@@ -198,13 +199,13 @@ async function checkAll() {
           const head = better.some((s) => s.status === "en_stock") ? "🏬 EN STOCK EN MAGASIN" : "🚚 ARRIVAGE EN MAGASIN";
           for (const zone of new Set(better.map((s) => s.zone))) { // un message par salon de région
             const group = better.filter((s) => s.zone === zone);
-            await sendDiscord(`${head} — Fnac\n${name}\n${group.map((s) => `  • Fnac ${s.name} : ${s.text}`).join("\n")}\n${url}`, zone);
+            await sendDiscord(`${head} — Fnac\n${name}\n${group.map((s) => `  • Fnac ${s.name} : ${s.text}`).join("\n")}\n${url}`, zone, r.image);
           }
           notify(`${head} : ${name} (${better.map((s) => s.name).join(", ")})`);
         }
       } else if (known && r.storeStatus && (storeRank[r.storeStatus] || 0) > (storeRank[prev.storeStatus] || 0)) {
         const head = r.storeStatus === "en_stock" ? "🏬 EN STOCK EN MAGASIN" : "🚚 ARRIVAGE EN MAGASIN";
-        await sendDiscord(`${head} — ${r.storeName || "Fnac"}\n${name}\n${r.storeText}\n${url}`, zoneOf(r.storeName));
+        await sendDiscord(`${head} — ${r.storeName || "Fnac"}\n${name}\n${r.storeText}\n${url}`, zoneOf(r.storeName), r.image);
         notify(`${head} (${r.storeName || "Fnac"}) : ${name}`);
       }
       if (!r.web && !r.source) {

@@ -90,13 +90,17 @@ class Notifier:
         self.tg_token = cfg.get("telegram_bot_token") or None
         self.tg_chat = cfg.get("telegram_chat_id") or None
 
-    def send(self, message: str, zone: str | None = None) -> None:
+    def send(self, message: str, zone: str | None = None, image: str | None = None) -> None:
         print(f"\n🔔 {f'[{zone}] ' if zone else ''}{message}\n", flush=True)
         hook = self.zone_webhooks.get(zone or "") or self.discord
         if hook:
             try:
-                for part in _chunks(message, 1900):  # Discord refuse les messages de plus de 2000 caractères
-                    _post_json(hook, {"content": part})
+                parts = _chunks(message, 1900)  # Discord refuse les messages de plus de 2000 caractères
+                for i, part in enumerate(parts):
+                    payload = {"content": part}
+                    if image and i == len(parts) - 1:  # photo du produit sous le dernier morceau
+                        payload["embeds"] = [{"image": {"url": image}}]
+                    _post_json(hook, payload)
             except Exception as e:
                 print(f"[discord] échec : {e}")
         if self.tg_token and self.tg_chat:

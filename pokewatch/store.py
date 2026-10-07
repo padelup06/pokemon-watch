@@ -68,7 +68,7 @@ class Store:
         self.db.executescript(SCHEMA)
         # Colonnes ajoutées après coup : on complète les bases existantes.
         cols = {r[1] for r in self.db.execute("PRAGMA table_info(products)")}
-        for col in ("restock", "found_url"):
+        for col in ("restock", "found_url", "image"):
             if col not in cols:
                 self.db.execute(f"ALTER TABLE products ADD COLUMN {col} TEXT")
         if "zone" not in {r[1] for r in self.db.execute("PRAGMA table_info(store_stock)")}:
@@ -228,6 +228,15 @@ class Store:
         cur = self.db.execute("INSERT OR IGNORE INTO searches (url, first_run) VALUES (?, ?)", (url, now()))
         self.db.commit()
         return cur.rowcount == 0
+
+    def set_image(self, url: str, image: str | None) -> None:
+        if image:
+            self.db.execute("UPDATE products SET image = ? WHERE url = ?", (image, url))
+            self.db.commit()
+
+    def image(self, url: str) -> str | None:
+        row = self.db.execute("SELECT image FROM products WHERE url = ?", (url,)).fetchone()
+        return row[0] if row else None
 
     def search_due(self, url: str, every_minutes: float) -> bool:
         """True si la page n'a pas été parcourue depuis every_minutes (ou jamais) ; note alors l'heure du passage."""

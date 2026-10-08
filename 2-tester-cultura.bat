@@ -1,5 +1,6 @@
 @echo off
 chcp 65001 >nul
+set PYTHONUTF8=1
 cd /d "%~dp0"
 echo Test Cultura : un navigateur va s'ouvrir et parcourir Cultura (2 a 5 minutes).
 echo Ne fermez pas la fenetre du navigateur, elle se fermera toute seule.

@@ -1,11 +1,15 @@
 @echo off
-setlocal EnableDelayedExpansion
 chcp 65001 >nul
 cd /d "%~dp0"
+setlocal EnableDelayedExpansion
+set PYTHONUTF8=1
+:ask
 if not exist webhook.txt (
   echo Collez l'adresse de votre webhook Discord (la meme que sur GitHub^) puis Entree :
+  set "HOOK="
   set /p HOOK=
-  call echo %%HOOK%%> webhook.txt
+  if not defined HOOK goto ask
+  >webhook.txt echo(!HOOK!
 )
 set /p POKEWATCH_DISCORD_WEBHOOK=<webhook.txt
 if not exist webhook-06.txt (

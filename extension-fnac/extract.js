@@ -61,7 +61,7 @@ async function pokewatchExtract(region = null, searchMode = null, withStores = t
     // Il figure pourtant dans la page telle que le site l'envoie : on relit donc cette
     // même page (même navigateur, mêmes cookies, donc même magasin choisi).
     try {
-      const r = await fetch(location.href, { credentials: "include" });
+      const r = await fetch(location.href, { credentials: "include", signal: AbortSignal.timeout(15000) });
       const text = await r.text();
       if (r.ok && !/captcha-delivery|geo\.captcha/i.test(text)) {
         const parsed = new DOMParser().parseFromString(text, "text/html");
@@ -98,7 +98,7 @@ async function pokewatchExtract(region = null, searchMode = null, withStores = t
     if (prid && withStores) {
       const formid = crypto.randomUUID().replace(/-/g, "");
       const r = await fetch(`/nav/api/storepickup/storepickuppopin?prid=${prid}&storeid=${storeid}` +
-        `&formid=${formid}&offerref=00000000-0000-0000-0000-000000000000&catalog=1`, { credentials: "include" });
+        `&formid=${formid}&offerref=00000000-0000-0000-0000-000000000000&catalog=1`, { credentials: "include", signal: AbortSignal.timeout(15000) });
       if (r.ok) {
         const list = parseStores(await r.text());
         if (list.length) result.stores = list;
@@ -116,7 +116,7 @@ async function pokewatchExtract(region = null, searchMode = null, withStores = t
           const entry = { ...city, stores: null };
           try {
             const rr = await fetch("/nav/api/StorePickup/SearchStore", {
-              method: "POST", body: params.toString(), credentials: "include",
+              method: "POST", body: params.toString(), credentials: "include", signal: AbortSignal.timeout(15000),
               headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8", "X-Requested-With": "XMLHttpRequest" },
             });
             const list = rr.ok ? parseStores(await rr.text()) : [];

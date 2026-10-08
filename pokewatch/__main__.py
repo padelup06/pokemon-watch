@@ -30,6 +30,12 @@ from .watcher import Watcher, extract_product_links, load_config
 
 
 def main(argv: list[str] | None = None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        # Windows : sortie redirigée vers un fichier (tester-*.bat) = cp1252, sans émojis.
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
     ap = argparse.ArgumentParser(prog="pokewatch", description="Veille des stocks Pokémon TCG")
     ap.add_argument("-c", "--config", default="config.toml")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -134,16 +140,20 @@ def main(argv: list[str] | None = None) -> int:
     else:
         w = Watcher(cfg)
         if args.cmd == "check":
-            from .daily import check_pc, greet_zones, maybe_send_recap
+            from .daily import check_pc, greet_zones, maybe_send_recap, pc_alive
 
             s = cfg["settings"]
             try:
                 greet_zones(w)
+                if s.get("watch_pc"):
+                    # Avant le passage : si le PC tourne, il alerte déjà pour produits.txt.
+                    check_pc(w, float(s.get("pc_silence_minutes", 15)))
+                    w.defer_to_pc = pc_alive(w, float(s.get("pc_silence_minutes", 15)))
+                    if w.defer_to_pc:
+                        print("[PC] actif : alertes de produits.txt (en ligne et magasins du 06) laissées au PC")
                 w.run_once()
                 if s.get("recap_hour") is not None:
                     maybe_send_recap(w, int(s["recap_hour"]))
-                if s.get("watch_pc"):
-                    check_pc(w, float(s.get("pc_silence_minutes", 15)))
             finally:
                 w.fetcher.close()
         else:

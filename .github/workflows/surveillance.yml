@@ -47,4 +47,5 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: pokewatch.db
-          key: pokewatch-db-${{ github.run_id }}
+          # run_attempt : une relance du même passage peut enregistrer sa propre copie
+          key: pokewatch-db-${{ github.run_id }}-${{ github.run_attempt }}

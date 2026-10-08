@@ -63,6 +63,10 @@ def load_config(path: str) -> dict:
         settings["code_postal"] = os.environ["POKEWATCH_CODE_POSTAL"]
     if os.environ.get("POKEWATCH_RAYON_KM"):
         settings["rayon_km"] = int(os.environ["POKEWATCH_RAYON_KM"])
+    # Ces variables visent la zone principale, aussi quand elle est écrite dans « zones ».
+    if settings.get("zones") and (os.environ.get("POKEWATCH_CODE_POSTAL") or os.environ.get("POKEWATCH_RAYON_KM")):
+        settings["zones"][0] = dict(settings["zones"][0], code_postal=settings.get("code_postal"),
+                                    rayon_km=settings.get("rayon_km"))
     cfg.setdefault("products", [])
     cfg.setdefault("searches", [])
     # Liste de surveillance : un fichier texte, une adresse de fiche produit par ligne.
@@ -78,7 +82,8 @@ def load_watchlist(path: str) -> list[dict]:
     """Lit produits.txt : une URL par ligne, label facultatif après « | », # pour commenter."""
     items = []
     try:
-        with open(path, encoding="utf-8") as f:
+        # utf-8-sig : le Bloc-notes peut ajouter une marque (BOM) en tête de fichier.
+        with open(path, encoding="utf-8-sig") as f:
             for line in f:
                 line = line.strip()
                 if not line.startswith("http"):  # lignes vides et commentaires
@@ -214,6 +219,10 @@ class Watcher:
         # GitHub : laisse la liste de surveillance au PC (vérifiée chaque minute) pour éviter les doublons.
         self.exclude_watchlist = bool(s.get("exclude_watchlist", False))
         self.watch_interval = float(s.get("watchlist_interval_seconds", 0))
+        # GitHub pendant que le PC tourne : le PC alerte déjà pour produits.txt (stock en ligne
+        # et magasins du 06) ; GitHub relève quand même (filet de sécurité) mais sans doublon.
+        self.defer_to_pc = False
+        self._quiet = False
 
     def _pause(self, url: str | None = None) -> None:
         retailer = retailer_for_url(url) if url else None
@@ -258,19 +267,36 @@ class Watcher:
                 )
                 self._pause()
 
+    def _send(self, message: str, zone: str | None = None, image: str | None = None) -> None:
+        if self._quiet:
+            print(f"    (alerte déjà envoyée par le PC) {message.splitlines()[0]}", flush=True)
+            return
+        self.notifier.send(message, zone, image=image)
+
     def _too_many(self, retailer, error: Exception) -> bool:
         """HTTP 429 (« trop de demandes ») : on laisse l'enseigne tranquille 15 min."""
         if "429" not in str(error):
             return False
-        self._rate_pause[retailer.key] = time.time() + 900
+        self._set_pause(retailer.key, time.time() + 900)
         print(f"[{retailer.name}] trop de demandes (HTTP 429) : pause de 15 min pour cette enseigne", flush=True)
         return True
+
+    def _set_pause(self, key: str, until: float) -> None:
+        # Aussi dans la base : sur GitHub, chaque passage est un nouveau programme.
+        self._rate_pause[key] = until
+        self.store.set_meta(f"rate_pause_{key}", str(until))
+
+    def _paused(self, key: str) -> bool:
+        until = self._rate_pause.get(key)
+        if until is None:
+            until = self._rate_pause[key] = float(self.store.get_meta(f"rate_pause_{key}") or 0)
+        return time.time() < until
 
     def check(self, url: str, label: str | None = None) -> None:
         retailer = retailer_for_url(url)
         if retailer.needs_browser and self.fetcher.browser_mode == "never":
             return  # ex. Cultura sur GitHub : bloqué sans navigateur, laissé au PC
-        if time.time() < self._rate_pause.get(retailer.key, 0):
+        if self._paused(retailer.key):
             return
         self.store.add_product(url, retailer.key, label)
         if ean_search(url):
@@ -288,7 +314,14 @@ class Watcher:
             av = parse_availability(html, seller=retailer.own_seller, seller_marker=retailer.seller_marker)
         name = label or av.name
         prev = self.store.get(url)
-        if av.status == UNKNOWN and prev is not None and prev["status"] not in (None, "", UNKNOWN):
+        unread_key = f"unread|{url}"
+        unread = int(self.store.get_meta(unread_key) or 0) + 1 if av.status == UNKNOWN else 0
+        if av.status != UNKNOWN and self.store.get_meta(unread_key) not in (None, "0"):
+            self.store.set_meta(unread_key, "0")
+        # Illisible plus de 6 fois de suite : ce n'est plus un frein passager (fiche retirée,
+        # redirigée…) : on l'enregistre « inconnu » au lieu de garder indéfiniment l'ancien état.
+        if av.status == UNKNOWN and prev is not None and prev["status"] not in (None, "", UNKNOWN) and unread <= 6:
+            self.store.set_meta(unread_key, str(unread))
             # Page lue mais illisible (site qui limite les demandes, page d'attente…) : on garde le
             # dernier état connu, sinon son retour déclencherait une fausse nouvelle alerte.
             title = re.search(r"<title[^>]*>([^<]*)", html or "", re.I)
@@ -301,7 +334,7 @@ class Watcher:
                 # Plusieurs pages illisibles d'affilée : le site nous freine, on le laisse respirer.
                 self._soft_blocks[retailer.key] = self._soft_blocks.get(retailer.key, 0) + 1
                 pause = min(600 * 2 ** (self._soft_blocks[retailer.key] - 1), 3600)
-                self._rate_pause[retailer.key] = time.time() + pause
+                self._set_pause(retailer.key, time.time() + pause)
                 self._unreadable[retailer.key] = 0
                 print(f"[{retailer.name}] pages illisibles en série : pause de {pause // 60:.0f} min pour cette enseigne", flush=True)
             return
@@ -313,13 +346,13 @@ class Watcher:
         print(f"{time.strftime('%H:%M:%S')} [{retailer.name}] {av.status:<11} ({av.source or '-'}) {name or url}", flush=True)
         # old == "" : premier relevé du produit, on enregistre sans alerter.
         if old and should_alert(old, av.status):
-            self.notifier.send(format_alert("stock", retailer.name, name, url, av.status, av.price), image=av.image)
+            self._send(format_alert("stock", retailer.name, name, url, av.status, av.price), image=av.image)
         if retailer.key in PROXIMIS_RETAILERS and av.status != UNKNOWN:
             # Pas sur une page catégorie (fiche dépubliée, suivi par code-barres) : ses
             # réassorts sont ceux d'autres produits.
             restock = self.store.set_restock(url, proximis_restock(html))
-            if restock and old:
-                self.notifier.send(format_restock_alert(retailer.name, name, url, restock), image=av.image)
+            if restock and prev is not None and prev["status"]:
+                self._send(format_restock_alert(retailer.name, name, url, restock), image=av.image)
         # Code-barres noté dans le libellé (« … EAN 0196… ») : stock magasin lisible même
         # sans fiche publiée (JouéClub, La Grande Récré).
         ean = label_ean(label) if retailer.key in PROXIMIS_RETAILERS else None
@@ -350,12 +383,18 @@ class Watcher:
                 if not self._too_many(retailer, e):
                     print(f"[{retailer.name}] ⚠ recherche {ean} : {e}")
                 return
-            return self._ean_result(url, retailer, ean, label, final.split("?")[0] if final else None)
+            final = final.split("?")[0] if final else None
+            # Seule une vraie fiche portant ce code-barres compte (pas un renvoi vers l'accueil
+            # ou une page de recherche).
+            if final and not (retailer.product_url.match(final) and final.endswith(ean)):
+                final = None
+            return self._ean_result(url, retailer, ean, label, final)
         try:
             html = self.fetcher.get(url, retailer.needs_browser)
         except FetchError as e:
             self.store.record_error(url, retailer.key, str(e))
-            print(f"[{retailer.name}] ⚠ recherche {ean} : {e}")
+            if not self._too_many(retailer, e):
+                print(f"[{retailer.name}] ⚠ recherche {ean} : {e}")
             return
         if re.search(r"challenge-platform|cf-chl|<title>\s*Un instant", html, re.I):
             print(f"[{retailer.name}] recherche {ean} : bloquée par la vérification Cloudflare (réessai au prochain passage)")
@@ -387,7 +426,7 @@ class Watcher:
         self._ean_result(url, retailer, ean, label, found)
 
     def _ean_result(self, url: str, retailer, ean: str, label: str | None, found: str | None) -> None:
-        first = self.store.get(url)["last_check"] is None
+        first = self.store.get(url)["status"] is None  # une erreur de lecture ne compte pas comme relevé
         self.store.record(url, retailer.key, "en_stock" if found else "inconnu", label, None)
         appeared = self.store.set_found(url, found)
         print(f"[{retailer.name}] recherche {ean} : {'fiche trouvée ' + found if found else 'aucune fiche'}")
@@ -398,7 +437,7 @@ class Watcher:
                 # fiche publiée directement en stock ne passe pas inaperçue).
                 row = self.store.get(found)
                 status = STATUS_LABEL.get(row["status"], row["status"]) if row is not None and row["status"] else None
-                self.notifier.send(
+                self._send(
                     f"🆕 FICHE EN LIGNE chez {retailer.name} : {label or ean}" + (f" — {status}" if status else "")
                     + f"\n{found}", image=self.store.image(found)
                 )
@@ -431,6 +470,11 @@ class Watcher:
                         st.zone = z["name"]
                         stocks.append(st)
         except FetchError as e:
+            if not re.search(r"HTTP Error|\b429\b|\b5\d\d\b|timed out|urlopen|onnection|refused|reset|réseau", str(e)):
+                # Erreur propre à ce produit (fiche non publiée, pas de stock magasin…) : les
+                # autres produits de l'enseigne continuent d'être relevés.
+                print(f"[{retailer.name}] magasins : {e} — {name or url}", flush=True)
+                return
             # Pause doublée à chaque échec consécutif (5, 10, 20, 40 min, puis 1 h) : un serveur
             # qui refuse une connexion (502 en série chez l'utilisateur) se débloque mieux sans
             # être relancé toutes les 5 min. GitHub continue de relever le stock magasin.
@@ -439,6 +483,9 @@ class Watcher:
             pause = min(self.store_backoff * 2 ** (fails - 1), 3600)
             self._store_pause[retailer.key] = time.time() + pause
             print(f"[{retailer.name}] ⚠ magasins : {e} — stock magasin en pause {pause // 60:.0f} min", flush=True)
+            return
+        except (KeyError, TypeError, ValueError, AttributeError) as e:  # réponse de l'API inattendue
+            print(f"[{retailer.name}] ⚠ magasins : réponse inattendue ({e!r}) — {name or url}", flush=True)
             return
         if self._store_fails.pop(retailer.key, 0):
             print(f"[{retailer.name}] magasins : de nouveau accessibles", flush=True)
@@ -449,14 +496,18 @@ class Watcher:
               f"{in_stock}/{len(stocks)} en stock, {incoming} en arrivage")
         # Premier relevé de ce produit dans une région : on note l'existant sans alerter.
         first = {z["name"] for z in active if z["every"] and self.store.get_meta(f"zs|{url}|{z['name']}") is None}
-        for name in first:
-            self.store.set_meta(f"zs|{url}|{name}", "1")
+        for zname in first:
+            self.store.set_meta(f"zs|{url}|{zname}", "1")
         newly = [st for st in newly if not self.zone_silent(st.zone) and st.zone not in first]
         if newly:
             self.add_quantities(url, retailer, newly, html, ean)
             for zone in dict.fromkeys(st.zone for st in newly):  # une alerte par zone, dans son salon
-                self.notifier.send(format_store_alert(retailer.name, name, url, [st for st in newly if st.zone == zone]), zone,
-                                   image=self.store.image(url))
+                msg = format_store_alert(retailer.name, name, url, [st for st in newly if st.zone == zone])
+                z = next((z for z in self.zones if z["name"] == zone), None)
+                if z is not None and z["every"]:  # régions : relevées par GitHub seul
+                    self.notifier.send(msg, zone, image=self.store.image(url))
+                else:
+                    self._send(msg, zone, image=self.store.image(url))
 
     def point_coords(self, pt: dict) -> tuple[float, float]:
         if pt["coords"] is None:
@@ -519,7 +570,10 @@ class Watcher:
 
     def run_watchlist(self) -> None:
         for p in self.cfg["watchlist"]:
-            self.check(p["url"], p.get("label"))
+            try:
+                self.check(p["url"], p.get("label"))
+            except Exception as e:
+                print(f"⚠ {p['url']} : {e!r}", flush=True)
             self._pause(p["url"])
 
     def zone_silent(self, name: str) -> bool:
@@ -545,8 +599,15 @@ class Watcher:
         urls = list(configured)
         if self.track_discovered:
             urls += [u for u in sorted(self.store.known_urls()) if u not in configured and u not in skip]
+        watched = {p["url"] for p in self.cfg["watchlist"]}
         for url in urls:
-            self.check(url, configured.get(url))
+            self._quiet = self.defer_to_pc and url in watched
+            try:
+                self.check(url, configured.get(url))
+            except Exception as e:  # une fiche qui fait planter la lecture ne doit pas arrêter le passage
+                print(f"⚠ {url} : {e!r}", flush=True)
+            finally:
+                self._quiet = False
             self._pause(url)
 
     def run_parallel(self, make_watcher=None, stop: threading.Event | None = None, cycles: int | None = None) -> None:
@@ -561,7 +622,14 @@ class Watcher:
             groups.setdefault(retailer_for_url(p["url"]).key, []).append(p)
 
         def worker(products: list[dict]) -> None:
-            w = make_watcher()
+            while True:  # navigateur qui ne démarre pas : on réessaie au lieu d'abandonner l'enseigne
+                try:
+                    w = make_watcher()
+                    break
+                except Exception as e:
+                    print(f"⚠ démarrage impossible pour {products[0]['url']} : {e!r} — nouvel essai dans 1 min", flush=True)
+                    if stop.wait(60):
+                        return
             done = 0
             try:
                 while not stop.is_set() and (cycles is None or done < cycles):

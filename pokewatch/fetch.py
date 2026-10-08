@@ -44,11 +44,22 @@ def fetch_http(url: str, timeout: float = 20) -> str:
         raise FetchError(f"HTTP {e.code}") from e
     except (urllib.error.URLError, TimeoutError, OSError) as e:
         raise FetchError(str(getattr(e, "reason", e))) from e
-    if enc == "gzip":
-        body = gzip.decompress(body)
-    elif enc == "deflate":
-        body = zlib.decompress(body)
-    return body.decode(charset, errors="replace")
+    except Exception as e:  # réponse coupée (IncompleteRead), en-tête invalide…
+        raise FetchError(f"réponse illisible : {e!r}") from e
+    try:
+        if enc == "gzip":
+            body = gzip.decompress(body)
+        elif enc == "deflate":
+            try:
+                body = zlib.decompress(body)
+            except zlib.error:
+                body = zlib.decompress(body, -zlib.MAX_WBITS)  # deflate « brut »
+        try:
+            return body.decode(charset, errors="replace")
+        except LookupError:  # jeu de caractères inconnu (ex. « utf8mb4 »)
+            return body.decode("utf-8", errors="replace")
+    except (OSError, EOFError, zlib.error) as e:
+        raise FetchError(f"réponse compressée illisible : {e!r}") from e
 
 
 def resolve_url(url: str, timeout: float = 20) -> str | None:
@@ -63,6 +74,8 @@ def resolve_url(url: str, timeout: float = 20) -> str | None:
         raise FetchError(f"HTTP {e.code}") from e
     except (urllib.error.URLError, TimeoutError, OSError) as e:
         raise FetchError(str(getattr(e, "reason", e))) from e
+    except Exception as e:
+        raise FetchError(f"réponse illisible : {e!r}") from e
 
 
 class BrowserFetcher:
@@ -98,7 +111,11 @@ class BrowserFetcher:
                 "Playwright non installé (pip install playwright && playwright install chromium)"
             ) from e
         self._pw = sync_playwright().start()
-        self._browser = self._pw.chromium.launch(headless=self.headless, args=self._ARGS)
+        try:
+            self._browser = self._pw.chromium.launch(headless=self.headless, args=self._ARGS)
+        except Exception as e:
+            self.close()
+            raise FetchError(f"navigateur impossible à démarrer : {e}") from e
         # On garde l'user-agent réel du navigateur : un faux user-agent incohérent
         # avec le reste de l'empreinte est justement ce que repèrent les anti-robots.
         self._context = self._browser.new_context(locale="fr-FR", viewport={"width": 1366, "height": 900})
@@ -119,14 +136,27 @@ class BrowserFetcher:
             pass  # pas grave : la fenêtre reste simplement visible
 
     def _tab(self):
-        if self._context is None:
-            self._start()
-        if self._page is None or self._page.is_closed():
-            # onglet fermé à la main : on en rouvre un, toujours réduit
-            self._page = self._context.new_page()
-            if not self.headless and self.minimized:
-                self._minimize()
-        return self._page
+        for attempt in (1, 2):
+            try:
+                if self._context is None:
+                    self._start()
+                if self._page is None or self._page.is_closed():
+                    # onglet fermé à la main : on en rouvre un, toujours réduit
+                    self._page = self._context.new_page()
+                    if not self.headless and self.minimized:
+                        self._minimize()
+                return self._page
+            except FetchError:
+                raise
+            except Exception as e:
+                # Fenêtre fermée à la main ou navigateur planté : on repart d'un navigateur neuf.
+                self.close()
+                if attempt == 2:
+                    raise FetchError(f"navigateur indisponible : {e}") from e
+
+    def _lost(self, e: Exception) -> None:
+        if re.search(r"has been closed|Target closed|Browser closed|disconnected", str(e), re.I):
+            self.close()  # relancé au prochain appel
 
     def fetch(self, url: str, timeout: float = 30) -> str:
         page = self._tab()
@@ -145,6 +175,7 @@ class BrowserFetcher:
             self.last_url = page.url  # adresse finale (une recherche peut ouvrir directement la fiche)
             return page.content()
         except Exception as e:
+            self._lost(e)
             raise FetchError(str(e)) from e
 
     def fetch_json(self, url: str, origin: str, timeout: float = 30):
@@ -156,6 +187,7 @@ class BrowserFetcher:
                 page.goto(origin + "/", wait_until="domcontentloaded", timeout=timeout * 1000)
                 page.wait_for_timeout(3000)
             except Exception as e:
+                self._lost(e)
                 raise FetchError(str(e)) from e
         try:
             status, text = page.evaluate(
@@ -166,6 +198,7 @@ class BrowserFetcher:
                 url,
             )
         except Exception as e:
+            self._lost(e)
             raise FetchError(str(e)) from e
         if status != 200:
             raise FetchError(f"HTTP {status}")
@@ -175,10 +208,12 @@ class BrowserFetcher:
             raise FetchError("réponse non JSON (page anti-robot ?)") from e
 
     def close(self) -> None:
-        if self._browser:
-            self._browser.close()
-        if self._pw:
-            self._pw.stop()
+        for step in (self._browser and self._browser.close, self._pw and self._pw.stop):
+            if step:
+                try:
+                    step()
+                except Exception:
+                    pass  # navigateur déjà fermé ou planté
         self._pw = self._browser = self._context = self._page = None
 
 

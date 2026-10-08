@@ -93,21 +93,26 @@ def _context(html: str, ean: str | None = None) -> tuple[dict, str]:
     quand même (vérifié le 6/10 chez La Grande Récré)."""
     ctx = {}
     for key in ("websiteId", "sectionId", "pageId"):
-        m = re.search(rf'"{key}":(\d+)', html)
+        m = re.search(rf'"{key}"\s*:\s*(\d+)', html)
         if not m:
             raise FetchError(f"{key} introuvable dans la page")
         ctx[key] = int(m.group(1))
     # Une fiche dépubliée redirige vers une page catégorie, qui contient les blocs de stock
     # d'autres produits : on exige la fiche produit (schema.org) et on prend le bloc de stock
     # dont le code correspond au sien.
-    product_skus = set(re.findall(r'"@type":"Product".*?"sku":"([^"]+)"', html, re.S)[:1])
-    if not product_skus:
-        if ean:
-            return ctx, ean
-        raise FetchError("fiche produit non publiée (redirection)")
     blocks = re.findall(r'"stock":\{"showStoreAvailability":true[^{}]*?"sku":"([^"]+)"(?:[^{}]*?"ean13":"([^"]*)")?', html)
-    for sku, ean in blocks:
-        if sku in product_skus or ean in product_skus:
+    if ean:
+        # Code-barres connu : c'est lui qui désigne le produit, jamais un autre produit de la
+        # page (carrousel, page catégorie après dépublication).
+        for sku, code in blocks:
+            if ean in (sku, code):
+                return ctx, sku
+        return ctx, ean
+    product_skus = set(re.findall(r'"@type"\s*:\s*"Product".*?"sku"\s*:\s*"([^"]+)"', html, re.S)[:1])
+    if not product_skus:
+        raise FetchError("fiche produit non publiée (redirection)")
+    for sku, code in blocks:
+        if sku in product_skus or code in product_skus:
             return ctx, sku
     raise FetchError("ce produit n'a pas de disponibilité en magasin")
 
@@ -255,6 +260,13 @@ def _proximis_store_stock(
     return [_proximis_item(item) for item in data.get("items", [])]
 
 
+def _km(value) -> float | None:
+    try:
+        return round(float(value), 1)
+    except (TypeError, ValueError):
+        return None
+
+
 def _proximis_item(item: dict) -> StoreStock:
     shipping = item.get("storeShipping") or {}
     stock = shipping.get("stock") or {}
@@ -276,7 +288,7 @@ def _proximis_item(item: dict) -> StoreStock:
     return StoreStock(
         store_id=str(common.get("id") or common.get("code")),
         name=common.get("title") or "?",
-        distance_km=round(coords["distance"], 1) if coords.get("distance") is not None else None,
+        distance_km=_km(coords.get("distance")),
         in_stock=in_store,
         label=label,
         url=(common.get("URL") or {}).get("canonical"),
@@ -293,7 +305,7 @@ def _proximis_item(item: dict) -> StoreStock:
 # Le site étant derrière Cloudflare, les appels sont faits depuis le navigateur.
 
 CULTURA = "https://www.cultura.com"
-_cultura_stores_cache: dict[tuple[str, int], list[dict]] = {}
+_cultura_stores_cache: dict[tuple[str, int], tuple[float, list[dict]]] = {}
 
 
 def _graphql_url(query: str) -> str:
@@ -309,13 +321,17 @@ def cultura_url_key(product_url: str) -> str:
 
 def cultura_nearby_stores(fetcher, location: str, radius_km: int) -> list[dict]:
     key = (location, radius_km)
-    if key not in _cultura_stores_cache:
+    cached = _cultura_stores_cache.get(key)
+    if cached is None or time.time() - cached[0] > 86400:  # liste des magasins : relue chaque jour
         q = (
             '{stores(search:"%s",sort:{distance:ASC},limit:20){items{seller_code,name,distance,url_key}}}'
             % location.replace('"', "")
         )
         data = fetcher.fetch_json(_graphql_url(q), CULTURA)
-        items = ((data.get("data") or {}).get("stores") or {}).get("items") or []
+        stores = ((data.get("data") or {}) if isinstance(data, dict) else {}).get("stores")
+        if not isinstance(stores, dict):  # erreur GraphQL, page anti-robot… : rien en cache
+            raise FetchError("liste des magasins Cultura illisible")
+        items = stores.get("items") or []
         near = []
         for it in items:
             try:
@@ -324,8 +340,10 @@ def cultura_nearby_stores(fetcher, location: str, radius_km: int) -> list[dict]:
                 dist = None
             if dist is None or dist <= radius_km:
                 near.append({**it, "distance": dist})
-        _cultura_stores_cache[key] = near
-    return _cultura_stores_cache[key]
+        if not near:
+            return near  # pas mis en cache : réessayé au prochain passage
+        _cultura_stores_cache[key] = cached = (time.time(), near)
+    return cached[1]
 
 
 def cultura_store_stock(fetcher, product_url: str, location: str, radius_km: int = 30) -> list[StoreStock]:

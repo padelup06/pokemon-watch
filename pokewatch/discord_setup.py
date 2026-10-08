@@ -43,7 +43,11 @@ class Discord:
                     return json.loads(text) if text else None
             except urllib.error.HTTPError as e:
                 if e.code == 429:  # trop de demandes : Discord dit combien attendre
-                    time.sleep(float(json.loads(e.read().decode() or "{}").get("retry_after", 2)) + 0.5)
+                    try:
+                        wait = float(json.loads(e.read().decode() or "{}").get("retry_after", 2))
+                    except (ValueError, AttributeError):
+                        wait = 2.0  # réponse 429 en HTML (Cloudflare)
+                    time.sleep(wait + 0.5)
                     continue
                 raise RuntimeError(f"Discord {method} {path} : HTTP {e.code} {e.read().decode()[:300]}") from e
         raise RuntimeError("Discord : trop de demandes, réessayez dans une minute")
@@ -145,7 +149,14 @@ def _onboarding(api, guild_id: str, role_ids: dict[str, str], log) -> None:
 
 
 def main() -> int:
-    token = open("bot-token.txt", encoding="utf-8").read().strip()
+    for stream in (sys.stdout, sys.stderr):  # émojis lisibles même redirigés vers un fichier
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+    # utf-8-sig : le Bloc-notes peut ajouter une marque (BOM) invisible en tête de fichier.
+    with open("bot-token.txt", encoding="utf-8-sig") as f:
+        token = f.read().strip()
     api = Discord(token)
     guilds = api("GET", "/users/@me/guilds")
     if not guilds:

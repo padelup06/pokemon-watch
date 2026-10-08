@@ -86,6 +86,12 @@ def check_pc(watcher, silence_minutes: float = 15) -> None:
     print(f"[PC] dernier signe de vie : {since}{' (silencieux)' if silent else ''}")
 
 
+def pc_alive(watcher, silence_minutes: float = 15) -> bool:
+    """Le PC s'est signalé récemment (d'après le dernier check_pc)."""
+    last = watcher.store.get_meta("pc_last_seen")
+    return bool(last) and time.time() - float(last) <= silence_minutes * 60
+
+
 # ---------------------------------------------------------------- salons de zone
 
 def greet_zones(watcher) -> None:

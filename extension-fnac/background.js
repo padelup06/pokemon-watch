@@ -71,9 +71,13 @@ async function readProduct(url, region = null, searchMode = null, withStores = t
   try {
     await waitForLoad(tab.id);
     await sleep(500); // la lecture attend elle-même le bloc d'achat (2 s au plus)
-    const results = await chrome.scripting.executeScript({
-      target: { tabId: tab.id }, func: pokewatchExtract, args: [region, searchMode, withStores],
-    });
+    // Au plus 90 s par fiche : une page ou une requête bloquée ne doit pas figer la surveillance.
+    const results = await Promise.race([
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id }, func: pokewatchExtract, args: [region, searchMode, withStores],
+      }),
+      sleep(90000).then(() => { throw new Error("lecture trop longue (90 s)"); }),
+    ]);
     const result = results && results[0] && results[0].result;
     // Page d'erreur, onglet fermé, vérification anti-robot… : pas de résultat exploitable.
     return result || { status: "erreur", error: "page non lue (chargement incomplet ?)" };
@@ -139,8 +143,15 @@ async function sendDiscord(content, zone = null, image = null) {
   if (!hook) return "pas de webhook";
   try {
     const payload = image ? { content, embeds: [{ image: { url: image } }] } : { content };
-    const r = await fetch(hook, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    return r.ok ? "ok" : `erreur ${r.status}`;
+    for (let attempt = 0; ; attempt++) {
+      const r = await fetch(hook, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (r.status === 429 && attempt < 3) { // trop de messages d'affilée : Discord dit combien attendre
+        const body = await r.json().catch(() => ({}));
+        await sleep(Math.min(Number(body.retry_after) || 2, 30) * 1000 + 250);
+        continue;
+      }
+      return r.ok ? "ok" : `erreur ${r.status}`;
+    }
   } catch (e) {
     return `envoi Discord impossible : ${e}`;
   }
@@ -155,10 +166,15 @@ function notify(message) {
 const BUYABLE = ["en_stock", "precommande"];
 const LABEL = { en_stock: "✅ EN STOCK", precommande: "🕒 PRÉCOMMANDE", rupture: "❌ rupture", inconnu: "❔ inconnu" };
 let running = false;
+let runningSince = 0;
 
 async function checkAll(force = false) {
-  if (running) return "Une vérification est déjà en cours : rouvrez cette fenêtre dans une minute pour voir le résultat.";
+  // Une vérification bloquée depuis plus de 20 min ne doit pas empêcher les suivantes.
+  if (running && Date.now() - runningSince < 20 * 60000) {
+    return "Une vérification est déjà en cours : rouvrez cette fenêtre dans une minute pour voir le résultat.";
+  }
   running = true;
+  runningSince = Date.now();
   try {
     const { products, state } = await settings();
     const report = [];
@@ -196,15 +212,15 @@ async function checkAll(force = false) {
         report.push(`${url} : vérification demandée par la Fnac — pause de ${pauseMin} min`);
         return report;
       }
-      if (block) {
-        await chrome.storage.local.remove("block");
-        await sendDiscord("✅ Fnac de nouveau lisible : surveillance Fnac reprise.");
-        block = null;
-      }
       if (r.status === "erreur") {
         report.push(`${url} : ${r.error}`);
         state[url] = Object.assign({}, prev, { error: r.error, at: new Date().toISOString() });
         continue;
+      }
+      if (block) { // une vraie fiche lue : le blocage est levé
+        await chrome.storage.local.remove("block");
+        await sendDiscord("✅ Fnac de nouveau lisible : surveillance Fnac reprise.");
+        block = null;
       }
       const name = r.name || url;
       const known = Boolean(prev.status); // premier relevé : on enregistre sans alerter
@@ -220,7 +236,7 @@ async function checkAll(force = false) {
         if (!reg.stores) continue;
         // La Fnac renvoie aussi des magasins lointains (52 pour Paris) : on garde ceux du rayon de la ville.
         const names = new Set((seen || []).map((s) => s.name));
-        const near = reg.stores.filter((s) => !names.has(s.name) && (s.distanceKm == null || s.distanceKm <= reg.radius));
+        const near = reg.stores.filter((s) => !names.has(s.name) && (s.distanceKm != null && s.distanceKm <= reg.radius));
         seen = (seen || []).concat(near.map((s) => ({ ...s, zone: reg.key })));
       }
       let merged = null;
@@ -252,16 +268,19 @@ async function checkAll(force = false) {
         status: r.status, storeStatus: r.storeStatus, storeName: r.storeName, name,
         web: r.web, storeText: r.storeText, source: r.source, diag: r.diag, stores: merged || prev.stores, at: new Date().toISOString(),
         region: r.regions ? r.regions.map((reg) => ({ key: reg.key, term: reg.term, error: reg.error || null,
-          n: reg.stores ? reg.stores.filter((x) => x.distanceKm == null || x.distanceKm <= reg.radius).length : 0,
-          rayon: reg.stores ? reg.stores.filter((x) => x.status === "en_stock" && (x.distanceKm == null || x.distanceKm <= reg.radius)).length : 0,
+          n: reg.stores ? reg.stores.filter((x) => x.distanceKm != null && x.distanceKm <= reg.radius).length : 0,
+          rayon: reg.stores ? reg.stores.filter((x) => x.status === "en_stock" && (x.distanceKm != null && x.distanceKm <= reg.radius)).length : 0,
           radius: reg.radius })) : prev.region || null,
       };
       report.push(`${name}\n   en ligne : ${r.web ? `${r.web} → ${LABEL[r.status] || r.status}` : LABEL[r.status]}\n   ` +
         (r.stores ? r.stores.map((s) => `Fnac ${s.name} : ${s.text}`).join("\n   ") : `${r.storeName || "magasin"} : ${r.storeText || "—"}`) +
         (r.regions ? r.regions.map((reg) => `\n   ${reg.key} (${reg.term}) : ` + (reg.stores
-          ? `${reg.stores.filter((x) => x.distanceKm == null || x.distanceKm <= reg.radius).length} Fnac, ` +
-            `${reg.stores.filter((x) => x.status === "en_stock" && (x.distanceKm == null || x.distanceKm <= reg.radius)).length} en rayon`
+          ? `${reg.stores.filter((x) => x.distanceKm != null && x.distanceKm <= reg.radius).length} Fnac, ` +
+            `${reg.stores.filter((x) => x.status === "en_stock" && (x.distanceKm != null && x.distanceKm <= reg.radius)).length} en rayon`
           : `recherche impossible (${reg.error || "?"})`)).join("") : ""));
+      // Enregistré fiche par fiche : si Chrome endort l'extension en plein tour, une alerte
+      // déjà envoyée ne repart pas une deuxième fois.
+      await chrome.storage.local.set({ state });
       await sleep(1000 + Math.random() * 1500);
     }
     await chrome.storage.local.set({ state, regionIdx: regionIdx + (withStores ? CITIES_PER_ROUND : 0), searchMode: mode, cycle: cycle + 1 });

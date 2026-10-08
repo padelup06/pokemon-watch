@@ -1,5 +1,6 @@
 @echo off
 chcp 65001 >nul
+set PYTHONUTF8=1
 cd /d "%~dp0"
 echo Ouvrez cultura.com dans votre navigateur habituel, allez sur la fiche d'un produit Pokemon
 echo VENDU EN MAGASIN (un coffret ou un display francais, pas un import Japon) et copiez son adresse.

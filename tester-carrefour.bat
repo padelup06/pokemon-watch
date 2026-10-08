@@ -1,5 +1,6 @@
 @echo off
 chcp 65001 >nul
+set PYTHONUTF8=1
 cd /d "%~dp0"
 echo Test Carrefour : un navigateur va s'ouvrir sur carrefour.fr (1 a 2 minutes).
 echo Si Carrefour affiche une case "Je ne suis pas un robot", cochez-la.

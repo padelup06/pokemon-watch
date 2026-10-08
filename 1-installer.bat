@@ -1,5 +1,6 @@
 @echo off
 chcp 65001 >nul
+set PYTHONUTF8=1
 cd /d "%~dp0"
 echo === Installation de Pokemon Watch ===
 where python >nul 2>nul

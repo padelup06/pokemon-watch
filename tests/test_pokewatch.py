@@ -510,6 +510,37 @@ class EanInLinkTests(unittest.TestCase):
         self.assertEqual(w.store.get(search)["found_url"], fiche)
 
 
+class ReviewRegressionTests(unittest.TestCase):
+    def ld(self, data):
+        return f'<script type="application/ld+json">{json.dumps(data)}</script>'
+
+    def test_aggregate_offer_wrapper_does_not_bypass_seller_filter(self):
+        own = RETAILERS["leclerc"].own_seller
+        html = self.ld({"@type": "Product", "name": "Coffret", "offers": {"@type": "AggregateOffer", "availability": "InStock",
+                        "lowPrice": 138, "offers": [{"availability": "InStock", "seller": {"name": "Stock e-commerce"}}]}})
+        self.assertEqual(parse_availability(html, seller=own).status, OUT_OF_STOCK)
+
+    def test_offer_count_zero_wins(self):
+        html = self.ld({"@type": "Product", "name": "Tin", "offers": {"@type": "AggregateOffer", "offerCount": 0, "availability": "InStock"}})
+        self.assertEqual(parse_availability(html).status, OUT_OF_STOCK)
+
+    def test_related_products_ignored(self):
+        html = self.ld({"@type": "Product", "name": "Main", "isRelatedTo": [
+            {"@type": "Product", "name": "Other", "offers": {"availability": "InStock"}}]})
+        self.assertEqual(parse_availability(html).status, UNKNOWN)
+        html = self.ld({"@graph": [{"@type": "ItemList", "itemListElement": [
+            {"@type": "Product", "name": "Reco", "offers": {"availability": "InStock"}}]}]})
+        self.assertEqual(parse_availability(html).status, UNKNOWN)
+
+    def test_odd_shapes(self):
+        html = self.ld({"@type": "http://schema.org/Product", "name": ["A", "B"],
+                        "offers": {"availability": ["https://schema.org/InStock"], "seller": [{"name": "Cdiscount"}]}})
+        av = parse_availability(html, seller=RETAILERS["cdiscount"].own_seller)
+        self.assertEqual((av.status, av.name), (IN_STOCK, "A"))
+        html = '<script type="application/ld+json; charset=utf-8">{"@type":"Product","name":"x\ty","offers":{"availability":"OutOfStock"}}</script>'
+        self.assertEqual(parse_availability(html).status, OUT_OF_STOCK)
+
+
 class ShopifyTests(unittest.TestCase):
     def test_catalog_filtered_by_title_and_type(self):
         from pokewatch.watcher import shopify_links

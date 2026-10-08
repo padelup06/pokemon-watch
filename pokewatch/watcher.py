@@ -23,7 +23,7 @@ from .instore import (
     proximis_restock,
     proximis_store_stock,
 )
-from .notify import Notifier, format_alert, format_restock_alert, format_store_alert, should_alert
+from .notify import STATUS_LABEL, Notifier, format_alert, format_restock_alert, format_store_alert, should_alert
 from .parse import UNKNOWN, parse_availability
 from .retailers import retailer_for_url
 from .store import Store
@@ -364,8 +364,13 @@ class Watcher:
         if found:
             self.check(found, label)  # d'abord la fiche : nom, stock et photo pour l'alerte
             if appeared and not first:
+                # Le premier relevé de la fiche n'alerte pas : son état est donc donné ici (une
+                # fiche publiée directement en stock ne passe pas inaperçue).
+                row = self.store.get(found)
+                status = STATUS_LABEL.get(row["status"], row["status"]) if row is not None and row["status"] else None
                 self.notifier.send(
-                    f"🆕 FICHE EN LIGNE chez {retailer.name} : {label or ean}\n{found}", image=self.store.image(found)
+                    f"🆕 FICHE EN LIGNE chez {retailer.name} : {label or ean}" + (f" — {status}" if status else "")
+                    + f"\n{found}", image=self.store.image(found)
                 )
 
     def check_stores(self, url: str, retailer, name: str | None, html: str | None = None, ean: str | None = None) -> None:

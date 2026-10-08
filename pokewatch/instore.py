@@ -202,6 +202,12 @@ def proximis_estimate_quantities(
     return result
 
 
+# Produits suivis par code-barres sans fiche publiée (adresse « …/pokemon/?ean=… ») : le
+# contexte de la page (site, rubrique) ne change pas, on ne recharge donc pas la page à
+# chaque relevé (JouéClub répond 429 quand on charge trop de pages).
+_ean_ctx: dict[str, dict] = {}
+
+
 def _proximis_store_stock(
     product_url: str, lat: float, lon: float, radius_km: int, html: str | None, fresh: bool, quantity: int = 1,
     ean: str | None = None,
@@ -210,10 +216,15 @@ def _proximis_store_stock(
     try:
         opener, cookies, page = _session(origin, product_url, fresh=fresh)
         html = page or html
-        if html is None:
-            with opener.open(urllib.request.Request(product_url, headers=_HTML_HEADERS), timeout=20) as r:
-                html = r.read().decode("utf-8", errors="replace")
-        ctx, sku = _context(html, ean)
+        if html is None and ean and product_url in _ean_ctx:
+            ctx, sku = _ean_ctx[product_url], ean
+        else:
+            if html is None:
+                with opener.open(urllib.request.Request(product_url, headers=_HTML_HEADERS), timeout=20) as r:
+                    html = r.read().decode("utf-8", errors="replace")
+            ctx, sku = _context(html, ean)
+            if ean and sku == ean and "ean=" in product_url:
+                _ean_ctx[product_url] = ctx
         body = {
             **ctx,
             "data": {

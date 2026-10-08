@@ -301,6 +301,14 @@ class Watcher:
         self.store.add_product(url, retailer.key, label)
         if ean_search(url):
             return self.check_ean_search(url, label)
+        ean = label_ean(label) if retailer.key in PROXIMIS_RETAILERS else None
+        if ean and "ean=" in url:
+            # Suivi du stock magasin seul (pas de fiche en ligne) : pas de page à relire à chaque
+            # tour, seulement le relevé magasin à son rythme (store_check_seconds).
+            if not self.zones or time.time() - self._store_last.get(url, 0) < self.store_interval:
+                return False
+            self.check_stores(url, retailer, label, None, ean)
+            return None
         try:
             html = self.fetcher.get(url, retailer.needs_browser)
         except FetchError as e:
@@ -355,7 +363,6 @@ class Watcher:
                 self._send(format_restock_alert(retailer.name, name, url, restock), image=av.image)
         # Code-barres noté dans le libellé (« … EAN 0196… ») : stock magasin lisible même
         # sans fiche publiée (JouéClub, La Grande Récré).
-        ean = label_ean(label) if retailer.key in PROXIMIS_RETAILERS else None
         if self.zones and retailer.key in STORE_RETAILERS and (av.status != UNKNOWN or ean):
             self.check_stores(url, retailer, name, html, ean)
 
@@ -571,11 +578,13 @@ class Watcher:
 
     def run_watchlist(self) -> None:
         for p in self.cfg["watchlist"]:
+            asked = None
             try:
-                self.check(p["url"], p.get("label"))
+                asked = self.check(p["url"], p.get("label"))
             except Exception as e:
                 print(f"⚠ {p['url']} : {e!r}", flush=True)
-            self._pause(p["url"])
+            if asked is not False:
+                self._pause(p["url"])
 
     def zone_silent(self, name: str) -> bool:
         """Pas d'alerte pour cette zone : premier passage, ou région sans salon Discord."""
@@ -603,13 +612,15 @@ class Watcher:
         watched = {p["url"] for p in self.cfg["watchlist"]}
         for url in urls:
             self._quiet = self.defer_to_pc and url in watched
+            asked = None
             try:
-                self.check(url, configured.get(url))
+                asked = self.check(url, configured.get(url))
             except Exception as e:  # une fiche qui fait planter la lecture ne doit pas arrêter le passage
                 print(f"⚠ {url} : {e!r}", flush=True)
             finally:
                 self._quiet = False
-            self._pause(url)
+            if asked is not False:  # False : rien demandé au site, pas de pause
+                self._pause(url)
 
     def run_parallel(self, make_watcher=None, stop: threading.Event | None = None, cycles: int | None = None) -> None:
         """Un fil par enseigne : chaque site est interrogé à son propre rythme (pauses
@@ -637,11 +648,13 @@ class Watcher:
                     for p in products:
                         if stop.is_set():
                             break
+                        asked = None
                         try:
-                            w.check(p["url"], p.get("label"))
+                            asked = w.check(p["url"], p.get("label"))
                         except Exception as e:  # un site en panne ne doit pas arrêter les autres
                             print(f"⚠ {p['url']} : {e}", flush=True)
-                        w._pause(p["url"])
+                        if asked is not False:  # False : rien demandé au site, pas de pause
+                            w._pause(p["url"])
                     done += 1
                     if cycles is None or done < cycles:
                         stop.wait(self.watch_interval + random.uniform(0, 5))

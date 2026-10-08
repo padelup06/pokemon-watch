@@ -510,6 +510,20 @@ class EanInLinkTests(unittest.TestCase):
         self.assertEqual(w.store.get(search)["found_url"], fiche)
 
 
+class ShopifyTests(unittest.TestCase):
+    def test_catalog_filtered_by_title_and_type(self):
+        from pokewatch.watcher import shopify_links
+        data = json.dumps({"products": [
+            {"handle": "pok-2boost-oct26-kd", "title": "Pokémon - Duopack", "product_type": "Cartes à collectionner"},
+            {"handle": "tote-bag-pokemon", "title": "Tote bag – Pokémon", "product_type": "Bagages et papeterie"},
+            {"handle": "uno", "title": "Uno", "product_type": "Cartes à collectionner"},
+        ]})
+        self.assertEqual(shopify_links(data, "https://www.kingdultes.com/products.json?limit=250", ["pokemon"], ["Cartes à collectionner"]),
+                         ["https://www.kingdultes.com/products/pok-2boost-oct26-kd"])
+        self.assertEqual(len(shopify_links(data, "https://www.kingdultes.com/x/products.json", [], [])), 3)
+        self.assertEqual(shopify_links("<html>", "https://www.kingdultes.com/products.json", [], []), [])
+
+
 class CdiscountTests(unittest.TestCase):
     def test_unnamed_seller_needs_page_marker(self):
         from pokewatch.retailers import RETAILERS

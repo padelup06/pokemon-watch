@@ -6,6 +6,7 @@ import os
 import random
 import re
 import threading
+import json
 import time
 import tomllib
 from html import unescape
@@ -101,6 +102,32 @@ def extract_product_links(html: str, base_url: str) -> list[str]:
         for m in retailer.product_url.finditer(candidate):
             seen.setdefault(m.group(0))
     return list(seen)
+
+
+def _plain(text: str) -> str:
+    return text.lower().replace("é", "e").replace("è", "e")
+
+
+def shopify_links(text: str, base_url: str, title_words: list[str], product_types: list[str]) -> list[str]:
+    """Catalogue Shopify (…/products.json) : fiches dont le titre contient tous les mots
+    `title_words` et dont le type est dans `product_types` (si donné). Les adresses des
+    fiches (« pok-2boost-oct26-kd ») ne disent pas toujours « pokemon » : on filtre sur le titre."""
+    try:
+        products = json.loads(text).get("products") or []
+    except (json.JSONDecodeError, ValueError, AttributeError):
+        return []
+    root = re.match(r"https?://[^/]+", base_url).group(0)
+    links = []
+    for p in products:
+        if not isinstance(p, dict) or not p.get("handle"):
+            continue
+        title = _plain(str(p.get("title") or ""))
+        if not all(_plain(w) in title for w in title_words):
+            continue
+        if product_types and _plain(str(p.get("product_type") or "")) not in [_plain(t) for t in product_types]:
+            continue
+        links.append(f"{root}/products/{p['handle']}")
+    return links
 
 
 def ean_search(url: str) -> str | None:
@@ -206,7 +233,10 @@ class Watcher:
                 continue
             finally:
                 self._pause()
-            links = [u for u in extract_product_links(html, url) if matches_keywords(u, search.get("keywords", self.keywords))]
+            if "/products.json" in url:
+                links = shopify_links(html, url, search.get("title", []), search.get("product_types", []))
+            else:
+                links = [u for u in extract_product_links(html, url) if matches_keywords(u, search.get("keywords", self.keywords))]
             # require : mots qui doivent TOUS figurer dans l'adresse (ex. "/pokemon/" chez JouéClub).
             links = [u for u in links if all(matches_keywords(u, [w]) for w in search.get("require", []))]
             limit = int(search.get("max", self.max_discovered))

@@ -99,6 +99,16 @@ RETAILERS: dict[str, Retailer] = {
             own_seller=re.compile(r"carrefour", re.I),
         ),
         Retailer(
+            key="kingdultes",
+            name="KingDultes",
+            domains=("kingdultes.com",),
+            # Boutique Shopify : https://www.kingdultes.com/products/<handle>
+            product_url=re.compile(r"https://www\.kingdultes\.com/products/[a-z0-9-]+"),
+            in_stock_keywords=_COMMON_IN,
+            out_of_stock_keywords=_COMMON_OUT,
+            use_keywords=False,  # fiches avec schema.org
+        ),
+        Retailer(
             key="leclerc",
             name="E.Leclerc",
             domains=("e.leclerc",),

@@ -42,6 +42,18 @@ pc_silence_minutes = 15
 # Premier passage de chaque page : silencieux (on note l'existant). Ensuite, toute fiche
 # Pokémon jamais vue déclenche une alerte.
 
+# KingDultes (boutique Shopify) : rayon TCG Pokémon, et tout le catalogue (250 dernières
+# fiches) pour les nouveautés pas encore rangées dans ce rayon (Duopack, Pokébox…).
+[[searches]]
+url = "https://www.kingdultes.com/collections/tcg-pokemon/products.json?limit=250"
+max = 0
+
+[[searches]]
+url = "https://www.kingdultes.com/products.json?limit=250"
+title = ["pokemon"]
+product_types = ["Cartes à collectionner"]
+max = 0
+
 # La Grande Récré : rayon cartes à collectionner et page Nouveautés
 [[searches]]
 url = "https://www.lagranderecre.fr/cartes-a-collectionner/"

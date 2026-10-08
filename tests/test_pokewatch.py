@@ -541,6 +541,14 @@ class ReviewRegressionTests(unittest.TestCase):
         self.assertEqual(parse_availability(html).status, OUT_OF_STOCK)
 
 
+class CulturaQtyTests(unittest.TestCase):
+    def test_real_quantity_kept_placeholder_ignored(self):
+        from pokewatch.instore import _cultura_result
+        stores = [{"seller_code": "CNC", "name": "Cultura Nice"}, {"seller_code": "CCA", "name": "Cultura Mandelieu"}]
+        res = _cultura_result(stores, {"CNC": ("available", 3), "CCA": ("available", 10000)})
+        self.assertEqual([(r.in_stock, r.qty) for r in res], [(True, 3), (True, None)])
+
+
 class ShopifyTests(unittest.TestCase):
     def test_catalog_filtered_by_title_and_type(self):
         from pokewatch.watcher import shopify_links

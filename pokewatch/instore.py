@@ -363,7 +363,7 @@ def cultura_store_stock_multi(fetcher, product_url: str, points: list[tuple[str,
     if not items:
         raise FetchError("produit introuvable dans l'API Cultura")
     offers = {
-        o.get("seller_code"): (o.get("front_availability") or "")
+        o.get("seller_code"): (o.get("front_availability") or "", o.get("qty"))
         for o in ((items[0].get("stock_item_extra") or {}).get("offer") or [])
     }
     return [_cultura_result(cultura_nearby_stores(fetcher, loc, r), offers) for loc, r in points]
@@ -372,10 +372,14 @@ def cultura_store_stock_multi(fetcher, product_url: str, points: list[tuple[str,
 def _cultura_result(stores: list[dict], offers: dict) -> list[StoreStock]:
     result = []
     for st in stores:
-        avail = offers.get(st["seller_code"], "")
+        avail, qty = offers.get(st["seller_code"], ("", None))
         in_stock = avail == "available" or avail.startswith("available")
+        # « qty » : 10000 pour « en stock » sans précision (cas relevé en août 2026) ; une
+        # autre valeur est un vrai nombre d'exemplaires annoncé par Cultura.
+        real_qty = qty if in_stock and isinstance(qty, (int, float)) and 0 < qty < 10000 else None
         result.append(
             StoreStock(
+                qty=int(real_qty) if real_qty else None,
                 store_id=st["seller_code"],
                 name=st.get("name") or st["seller_code"],
                 distance_km=st.get("distance"),

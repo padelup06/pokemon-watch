@@ -493,7 +493,8 @@ class Watcher:
         in_stock = sum(1 for s in stocks if s.in_stock)
         incoming = sum(1 for s in stocks if s.incoming and not s.in_stock)
         print(f"    magasins ({', '.join(z['name'] or z['points'][0]['location'] for z in active)}) : "
-              f"{in_stock}/{len(stocks)} en stock, {incoming} en arrivage")
+              f"{in_stock}/{len(stocks)} en stock, {incoming} en arrivage"
+              + "".join(f"\n      {s.name} : ~{s.qty} en stock" for s in stocks if s.in_stock and s.qty))
         # Premier relevé de ce produit dans une région : on note l'existant sans alerter.
         first = {z["name"] for z in active if z["every"] and self.store.get_meta(f"zs|{url}|{z['name']}") is None}
         for zname in first:

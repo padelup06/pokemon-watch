@@ -92,8 +92,4 @@ require = ["/pokemon/"]
 max = 0
 every_minutes = 360
 
-[[searches]]
-url = "https://www.joueclub.fr/Assets/Rbs/Seo/100185/fr_FR/Rbs_Catalog_Product.4.xml"
-require = ["/pokemon/"]
-max = 0
-every_minutes = 360
+# (Rbs_Catalog_Product.4.xml n'existe plus depuis octobre 2026 : 3 fichiers.)

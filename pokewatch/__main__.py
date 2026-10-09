@@ -63,6 +63,10 @@ def main(argv: list[str] | None = None) -> int:
     mg = sub.add_parser("magasin", help="dernier stock connu dans un magasin (ex. Mandelieu)")
     mg.add_argument("nom")
     mg.add_argument("--tout", action="store_true", help="tous les produits, pas seulement les 30 ans")
+    cr = sub.add_parser("cultura-refs", help="diagnostic : produits Cultura autour d'une référence")
+    cr.add_argument("--debut", type=int, default=13485900)
+    cr.add_argument("--fin", type=int, default=13486300)
+    cr.add_argument("--visible", action="store_true")
     e = sub.add_parser("explorer")
     e.add_argument("url")
     e.add_argument("-o", "--output", default="exploration.json")
@@ -115,6 +119,29 @@ def main(argv: list[str] | None = None) -> int:
                 print("titre :", (_re.findall(r"<title[^>]*>([^<]*)", html) or ["?"])[0])
             except Exception as e:
                 print(f"--- page de recherche ---\nerreur : {e}")
+        finally:
+            fetcher.close()
+        return 0
+
+    if args.cmd == "cultura-refs":
+        from .instore import CULTURA, _graphql_url
+
+        fetcher = Fetcher("always", headless=not args.visible)
+        try:
+            refs = list(range(args.debut, args.fin + 1))
+            for i in range(0, len(refs), 100):
+                chunk = ",".join(f'"{r}"' for r in refs[i:i + 100])
+                q = ('{products(filter:{sku:{in:[%s]}},pageSize:100,getDisabledProduct:1,resolverLight:1)'
+                     "{items{sku,name,url_key,stock_item_extra{offer{front_availability,seller_code,qty}}}}}" % chunk)
+                try:
+                    data = fetcher.fetch_json(_graphql_url(q), CULTURA)
+                except FetchError as e:
+                    print(f"{refs[i]}… : erreur {e}")
+                    continue
+                for it in ((data.get("data") or {}).get("products") or {}).get("items") or []:
+                    offers = (it.get("stock_item_extra") or {}).get("offer") or []
+                    dispo = sum(1 for o in offers if str(o.get("front_availability", "")).startswith("available"))
+                    print(f"{it.get('sku')} | {it.get('name')} | {len(offers)} magasins, {dispo} dispo | {it.get('url_key')}")
         finally:
             fetcher.close()
         return 0

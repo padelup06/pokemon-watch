@@ -17,6 +17,7 @@ from .instore import (
     PROXIMIS_RETAILERS,
     QUANTITY_RETAILERS,
     STORE_RETAILERS,
+    cultura_category_products,
     cultura_find_by_ean,
     cultura_store_stock,
     cultura_store_stock_multi,
@@ -589,6 +590,43 @@ class Watcher:
             configured.update({p["url"]: p.get("label") for p in self.cfg["watchlist"]})
         return configured
 
+    def cultura_discover(self) -> list[dict]:
+        """Rayons Pokémon de Cultura (cultura_categories), relus toutes les cultura_discover_minutes :
+        alerte pour chaque nouvelle fiche, et suivi automatique (stock en ligne et dans tous les
+        magasins) de celles dont le nom contient un mot de cultura_track. Cultura vend souvent un
+        produit sous plusieurs fiches (un Mini Tin par visuel), introuvables par code-barres."""
+        s = self.cfg["settings"]
+        cats = s.get("cultura_categories")
+        if not cats or self.fetcher.browser_mode == "never":
+            return []
+        tracked = json.loads(self.store.get_meta("cultura_tracked") or "{}")
+        last = float(self.store.get_meta("cultura_discover_last") or 0)
+        if time.time() - last >= float(s.get("cultura_discover_minutes", 30)) * 60:
+            self.store.set_meta("cultura_discover_last", str(time.time()))
+            try:
+                items = cultura_category_products(self.fetcher, cats)
+            except FetchError as e:
+                print(f"[Cultura] rayons Pokémon illisibles : {e}", flush=True)
+                items = []
+            if items:
+                first = self.store.get_meta("cultura_discover_init") is None
+                words = [_plain(w) for w in s.get("cultura_track", [])]
+                new_count = 0
+                for it in items:
+                    url = f"https://www.cultura.com/p-{it['url_key']}.html"
+                    name = str(it.get("name") or it["url_key"])
+                    if self.store.add_product(url, "cultura", f"{name} (Cultura)"):
+                        new_count += 1
+                        if not first:
+                            self.notifier.send(f"🆕 NOUVELLE FICHE chez Cultura : {name}\n{url}")
+                    if url not in tracked and any(w in _plain(name) for w in words):
+                        tracked[url] = f"{name} (Cultura)"
+                        print(f"[Cultura] suivi automatique : {name}", flush=True)
+                self.store.set_meta("cultura_discover_init", "1")
+                self.store.set_meta("cultura_tracked", json.dumps(tracked, ensure_ascii=False))
+                print(f"[Cultura] rayons Pokémon : {len(items)} fiches, {new_count} nouvelles, {len(tracked)} suivies", flush=True)
+        return [{"url": u, "label": n} for u, n in tracked.items()]
+
     def run_watchlist(self) -> None:
         for p in self.cfg["watchlist"]:
             asked = None
@@ -658,7 +696,14 @@ class Watcher:
             done = 0
             try:
                 while not stop.is_set() and (cycles is None or done < cycles):
-                    for p in products:
+                    batch = products
+                    if retailer_for_url(products[0]["url"]).key == "cultura":
+                        try:
+                            known = {p["url"] for p in products}
+                            batch = products + [p for p in w.cultura_discover() if p["url"] not in known]
+                        except Exception as e:
+                            print(f"⚠ Cultura (rayons) : {e!r}", flush=True)
+                    for p in batch:
                         if stop.is_set():
                             break
                         asked = None

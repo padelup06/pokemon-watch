@@ -387,6 +387,26 @@ def cultura_find_by_ean(fetcher, ean: str) -> tuple[str, str | None, str] | None
     return None
 
 
+def cultura_category_products(fetcher, category_ids: list) -> list[dict]:
+    """Produits des rayons Cultura donnés (ex. 46096 « Booster Pokémon », 46098 « Coffret
+    Pokémon »), fiches pas encore en vente comprises : [{sku, name, url_key}]."""
+    ids = ",".join(f'"{int(c)}"' for c in category_ids)
+    items, page = [], 1
+    while page <= 5:
+        q = ('{products(filter:{category_id:{in:[%s]}},pageSize:100,currentPage:%d)'
+             "{total_count,items{sku,name,url_key}}}" % (ids, page))
+        data = fetcher.fetch_json(_graphql_url(q), CULTURA)
+        products = ((data.get("data") or {}) if isinstance(data, dict) else {}).get("products")
+        if not isinstance(products, dict):
+            raise FetchError("liste des produits Cultura illisible")
+        batch = [it for it in products.get("items") or [] if isinstance(it, dict) and it.get("url_key")]
+        items += batch
+        if len(batch) < 100 or len(items) >= int(products.get("total_count") or 0):
+            break
+        page += 1
+    return items
+
+
 def cultura_nearby_stores(fetcher, location: str, radius_km: int) -> list[dict]:
     key = (location, radius_km)
     cached = _cultura_stores_cache.get(key)

@@ -549,6 +549,29 @@ class CulturaQtyTests(unittest.TestCase):
         self.assertEqual([(r.in_stock, r.qty) for r in res], [(True, 3), (True, None)])
 
 
+class CulturaDiscoverTests(unittest.TestCase):
+    def test_new_products_alert_and_tracking(self):
+        tmp = tempfile.mkdtemp()
+        cfg = {"settings": {"database": os.path.join(tmp, "t.db"), "browser": "auto",
+                            "cultura_categories": [46096], "cultura_track": ["30e anniversaire"]},
+               "alerts": {}}
+        w = Watcher(cfg)
+        catalog = [{"sku": "1", "name": "Mini Tin Pokémon 30e anniversaire Mewtwo", "url_key": "mini-tin-30-mewtwo"},
+                   {"sku": "2", "name": "Booster EV06", "url_key": "booster-ev06"}]
+        w.fetcher.fetch_json = lambda url, origin: {"data": {"products": {"total_count": len(catalog), "items": list(catalog)}}}
+        sent = []
+        w.notifier.send = lambda m, zone=None, image=None: sent.append(m)
+        tracked = w.cultura_discover()
+        self.assertEqual([t["url"] for t in tracked], ["https://www.cultura.com/p-mini-tin-30-mewtwo.html"])
+        self.assertEqual(sent, [])  # premier passage silencieux
+        catalog.append({"sku": "3", "name": "Coffret 30e anniversaire Poster", "url_key": "coffret-30-poster"})
+        w.store.set_meta("cultura_discover_last", "0")
+        tracked = w.cultura_discover()
+        self.assertEqual(len(tracked), 2)
+        self.assertEqual(len(sent), 1)
+        self.assertIn("Coffret 30e anniversaire Poster", sent[0])
+
+
 class ShopifyTests(unittest.TestCase):
     def test_catalog_filtered_by_title_and_type(self):
         from pokewatch.watcher import shopify_links

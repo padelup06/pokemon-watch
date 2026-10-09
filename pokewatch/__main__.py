@@ -72,6 +72,8 @@ def main(argv: list[str] | None = None) -> int:
     c6 = sub.add_parser("cultura-boutiques", help="diagnostic : vues magasin du catalogue Cultura")
     c6.add_argument("--visible", action="store_true")
     c7 = sub.add_parser("cultura-reseau", help="diagnostic : services que le site Cultura appelle lui-même")
+    c9 = sub.add_parser("cultura-filtres", help="diagnostic : filtres du catalogue Cultura")
+    c9.add_argument("--visible", action="store_true")
     e = sub.add_parser("explorer")
     e.add_argument("url")
     e.add_argument("-o", "--output", default="exploration.json")
@@ -124,6 +126,55 @@ def main(argv: list[str] | None = None) -> int:
                 print("titre :", (_re.findall(r"<title[^>]*>([^<]*)", html) or ["?"])[0])
             except Exception as e:
                 print(f"--- page de recherche ---\nerreur : {e}")
+        finally:
+            fetcher.close()
+        return 0
+
+    if args.cmd == "cultura-filtres":
+        import json as _json
+        import urllib.parse as _up
+
+        fetcher = Fetcher("always", headless=not args.visible)
+        fields = "total_count,items{sku,name,ean,url_key,stock_item_extra{front_availability,offer{seller_code,qty}}}"
+
+        def ask(title, q):
+            url = "https://www.cultura.com/m2/graphql?query=" + _up.quote(q, safe="{}(),:\"")
+            try:
+                code, text = fetcher.fetch_text(url, "https://www.cultura.com", headers={"Store": "cultura_b2c_fr_FR"})
+            except Exception as e:
+                print(f"--- {title} : erreur {e}")
+                return
+            try:
+                data = _json.loads(text)
+            except ValueError:
+                print(f"--- {title} (HTTP {code}) : {text[:300]}")
+                return
+            prods = ((data.get("data") or {}).get("products") or {})
+            items = prods.get("items") or []
+            err = data.get("errors")
+            print(f"--- {title} (HTTP {code}) : {prods.get('total_count')} résultat(s){' ERREUR ' + str(err)[:300] if err else ''}")
+            for it in items:
+                offers = (it.get("stock_item_extra") or {}).get("offer") or []
+                dispo = [o for o in offers if o.get("qty")]
+                print(f"   {it.get('sku')} | {it.get('name')} | EAN {it.get('ean')} | {len(offers)} magasins, "
+                      f"{len(dispo)} avec stock | {it.get('url_key')}")
+
+        eans = ["0196214146297", "0196214145221", "0196214144835", "0196214147225", "0196214147102",
+                "0196214147164", "0196214152311", "0196214144972", "0196214145153"]
+        try:
+            ask("EAN 30 ans (tous)", '{products(filter:{ean:{in:[%s]}},pageSize:50,getDisabledProduct:1){%s}}'
+                % (",".join(f'"{e}"' for e in eans + [e[1:] for e in eans]), fields))
+            for extra in ('sellable:{eq:"0"}', 'sellable:{eq:"1"}', 'status:{eq:"out_of_stock"}', 'has_cultura_stock:{eq:"1"}'):
+                ask(f"EAN 30 ans + {extra}", '{products(filter:{ean:{in:[%s]},%s},pageSize:50,getDisabledProduct:1){%s}}'
+                    % (",".join(f'"{e}"' for e in eans), extra, fields))
+            ask("nom « anniversaire » + stock Cultura",
+                '{products(search:"pokemon anniversaire",filter:{has_cultura_stock:{eq:"1"}},pageSize:50){%s}}' % fields)
+            ask("rayon Cartes Pokémon + stock Cultura",
+                '{products(filter:{category_id:{eq:"30120"},has_cultura_stock:{eq:"1"}},pageSize:100){%s}}' % fields)
+            ask("rayon Cartes Pokémon + non vendable en ligne",
+                '{products(filter:{category_id:{eq:"30120"},sellable:{eq:"0"}},pageSize:100,getDisabledProduct:1){%s}}' % fields)
+            ask("recherche « pokemon » + non vendable en ligne",
+                '{products(search:"pokemon",filter:{sellable:{eq:"0"}},pageSize:100,getDisabledProduct:1){%s}}' % fields)
         finally:
             fetcher.close()
         return 0

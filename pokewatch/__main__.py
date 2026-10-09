@@ -71,6 +71,7 @@ def main(argv: list[str] | None = None) -> int:
     c5.add_argument("--visible", action="store_true")
     c6 = sub.add_parser("cultura-boutiques", help="diagnostic : vues magasin du catalogue Cultura")
     c6.add_argument("--visible", action="store_true")
+    c7 = sub.add_parser("cultura-reseau", help="diagnostic : services que le site Cultura appelle lui-même")
     e = sub.add_parser("explorer")
     e.add_argument("url")
     e.add_argument("-o", "--output", default="exploration.json")
@@ -125,6 +126,61 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"--- page de recherche ---\nerreur : {e}")
         finally:
             fetcher.close()
+        return 0
+
+    if args.cmd == "cultura-reseau":
+        from urllib.parse import urlparse
+
+        from playwright.sync_api import sync_playwright
+
+        from .explore import _keep
+
+        pages = [
+            "https://www.cultura.com/",
+            "https://www.cultura.com/p-new-pdp",
+            "https://www.cultura.com/p-mini-tin-pokemon-mega-heroisme-modeles-aleatoires-vendu-a-l-unite-12369064.html",
+            "https://www.cultura.com/magasins/cultura-mandelieu.html",
+            "https://www.cultura.com/search/results?search_query=pokemon%2030e%20anniversaire",
+        ]
+        seen: dict[str, int] = {}
+        hits: list[str] = []
+
+        def on_response(resp):
+            req = resp.request
+            if req.resource_type not in ("xhr", "fetch") or not _keep(req.url):
+                return
+            u = urlparse(req.url)
+            key = f"{req.method} {u.scheme}://{u.netloc}{u.path}"
+            seen[key] = seen.get(key, 0) + 1
+            try:
+                body = resp.text()
+            except Exception:
+                return
+            for word in ("13200180", "anniversaire", "Anniversaire", "instore", "Instore"):
+                if word in body:
+                    hits.append(f"{key} contient « {word} »")
+                    break
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=False)
+            page = browser.new_context(locale="fr-FR").new_page()
+            page.on("response", on_response)
+            for url in pages:
+                try:
+                    page.goto(url, wait_until="domcontentloaded", timeout=60_000)
+                    for _ in range(20):  # vérification « Un instant » puis chargement des données
+                        page.wait_for_timeout(1000)
+                    page.mouse.wheel(0, 3000)
+                    page.wait_for_timeout(4000)
+                    print(f"--- {url} → {page.url} (titre : {page.title()[:60]})")
+                except Exception as e:
+                    print(f"--- {url} : erreur {e}")
+            browser.close()
+        print("\n--- services appelés par le site (nombre d'appels) ---")
+        for k, n in sorted(seen.items()):
+            print(f"{n:3d}  {k}")
+        print("\n--- réponses intéressantes ---")
+        print("\n".join(dict.fromkeys(hits)) or "(aucune)")
         return 0
 
     if args.cmd == "cultura-boutiques":

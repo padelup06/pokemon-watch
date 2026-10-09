@@ -71,11 +71,24 @@ class Store:
         for col in ("restock", "found_url", "image"):
             if col not in cols:
                 self.db.execute(f"ALTER TABLE products ADD COLUMN {col} TEXT")
-        if "zone" not in {r[1] for r in self.db.execute("PRAGMA table_info(store_stock)")}:
+        st_cols = {r[1] for r in self.db.execute("PRAGMA table_info(store_stock)")}
+        if "zone" not in st_cols:
             self.db.execute("ALTER TABLE store_stock ADD COLUMN zone TEXT")
+        if "qty" not in st_cols:
+            self.db.execute("ALTER TABLE store_stock ADD COLUMN qty INTEGER")
         if "last_check" not in {r[1] for r in self.db.execute("PRAGMA table_info(searches)")}:
             self.db.execute("ALTER TABLE searches ADD COLUMN last_check TEXT")
         self.db.commit()
+
+    def store_report(self, store: str) -> list[sqlite3.Row]:
+        """Dernier état connu de chaque produit dans les magasins dont le nom contient `store`."""
+        return self.db.execute(
+            """SELECT p.url, COALESCE(p.label, p.name, p.url) AS product, s.store_name, s.in_stock, s.label,
+                      s.qty, s.last_check
+               FROM store_stock s JOIN products p ON p.url = s.url
+               WHERE s.store_name LIKE ? ORDER BY s.store_name, product""",
+            (f"%{store}%",),
+        ).fetchall()
 
     def get(self, url: str) -> sqlite3.Row | None:
         return self.db.execute("SELECT * FROM products WHERE url = ?", (url,)).fetchone()
@@ -155,13 +168,14 @@ class Store:
             if st.code and _RANK[st.code] > _RANK[old_code]:
                 newly.append(st)
             self.db.execute(
-                """INSERT INTO store_stock (url, store_id, store_name, distance_km, in_stock, label, last_check, last_change, zone)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """INSERT INTO store_stock (url, store_id, store_name, distance_km, in_stock, label, last_check, last_change, zone, qty)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(url, store_id) DO UPDATE SET store_name = excluded.store_name,
                      distance_km = excluded.distance_km, in_stock = excluded.in_stock, label = excluded.label,
-                     last_check = excluded.last_check, zone = excluded.zone,
+                     last_check = excluded.last_check, zone = excluded.zone, qty = excluded.qty,
                      last_change = CASE WHEN ? THEN excluded.last_change ELSE store_stock.last_change END""",
-                (url, st.store_id, st.name, st.distance_km, st.code, st.label, ts, ts, getattr(st, "zone", ""), changed),
+                (url, st.store_id, st.name, st.distance_km, st.code, st.label, ts, ts, getattr(st, "zone", ""),
+                 getattr(st, "qty", None), changed),
             )
             if changed and not first_time and (old is not None or st.code):
                 self.db.execute(
@@ -175,7 +189,7 @@ class Store:
                 continue
             if store_id not in seen and old["in_stock"]:
                 self.db.execute(
-                    "UPDATE store_stock SET in_stock = 0, label = 'En rupture', last_check = ?, last_change = ? "
+                    "UPDATE store_stock SET in_stock = 0, label = 'En rupture', qty = NULL, last_check = ?, last_change = ? "
                     "WHERE url = ? AND store_id = ?",
                     (ts, ts, url, store_id),
                 )

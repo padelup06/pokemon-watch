@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 
 from .fetch import FetchError, Fetcher
@@ -59,6 +60,9 @@ def main(argv: list[str] | None = None) -> int:
     ce.add_argument("--nom", help="cherche aussi ce nom de produit")
     cx = sub.add_parser("cultura-explorer", help="diagnostic : comment trouver les produits Cultura")
     cx.add_argument("--visible", action="store_true")
+    mg = sub.add_parser("magasin", help="dernier stock connu dans un magasin (ex. Mandelieu)")
+    mg.add_argument("nom")
+    mg.add_argument("--tout", action="store_true", help="tous les produits, pas seulement les 30 ans")
     e = sub.add_parser("explorer")
     e.add_argument("url")
     e.add_argument("-o", "--output", default="exploration.json")
@@ -214,6 +218,23 @@ def main(argv: list[str] | None = None) -> int:
     except FileNotFoundError:
         print(f"Fichier {args.config} introuvable : copiez config.example.toml en config.toml.")
         return 1
+
+    if args.cmd == "magasin":
+        from .store import Store
+
+        rows = Store(cfg["settings"].get("database", "pokewatch.db")).store_report(args.nom)
+        if not args.tout:
+            rows = [r for r in rows if re.search(r"30\s*(e|è|ème|eme)?\s*anniv|30\s*ans|30th|30A", r["product"], re.I)]
+        if not rows:
+            print(f"Aucun relevé pour un magasin « {args.nom} » (le stock magasin n'a peut-être pas encore été lu).")
+            return 0
+        icon = {1: "✅ EN STOCK", 2: "🚚 arrivage", 0: "❌ rupture"}
+        for store in dict.fromkeys(r["store_name"] for r in rows):
+            print(f"\n{store}")
+            for r in (r for r in rows if r["store_name"] == store):
+                qty = f" — ~{r['qty']} ex." if r["qty"] else ""
+                print(f"  {icon.get(r['in_stock'], '?'):<12} {r['product']}{qty}  ({r['label'] or ''}, relevé {r['last_check'][:16].replace('T', ' ')})")
+        return 0
 
     if args.cmd == "dashboard":
         from .dashboard import serve

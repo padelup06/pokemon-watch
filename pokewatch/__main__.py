@@ -142,6 +142,18 @@ def main(argv: list[str] | None = None) -> int:
                     offers = (it.get("stock_item_extra") or {}).get("offer") or []
                     dispo = sum(1 for o in offers if str(o.get("front_availability", "")).startswith("available"))
                     print(f"{it.get('sku')} | {it.get('name')} | {len(offers)} magasins, {dispo} dispo | {it.get('url_key')}")
+            if args.debut == args.fin:
+                from .instore import cultura_store_stock
+
+                for cp in ("06210", "06000"):
+                    try:
+                        stores = cultura_store_stock(fetcher, f"https://www.cultura.com/p-ref-{args.debut}.html", cp, 30)
+                        print(f"\nAutour de {cp} :")
+                        for st in stores:
+                            q = f" — ~{st.qty} exemplaires" if st.qty else ""
+                            print(f"  {'✅' if st.in_stock else '❌'} {st.name} : {st.label}{q}")
+                    except Exception as e:
+                        print(f"{cp} : erreur {e!r}")
         finally:
             fetcher.close()
         return 0

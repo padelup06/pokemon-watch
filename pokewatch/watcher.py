@@ -310,7 +310,9 @@ class Watcher:
         if ean_search(url):
             return self.check_ean_search(url, label)
         ean = label_ean(label) if retailer.key in PROXIMIS_RETAILERS else None
-        if ean and "ean=" in url:
+        if (ean and "ean=" in url) or (retailer.key == "cultura" and "/p-ref-" in url):
+            # Cultura « /p-ref-<référence> » : produit vendu en magasin sans fiche sur le site
+            # (référence lue dans l'image d'une alerte) : stock magasin seulement.
             # Suivi du stock magasin seul (pas de fiche en ligne) : pas de page à relire à chaque
             # tour, seulement le relevé magasin à son rythme (store_check_seconds).
             if not self.zones or time.time() - self._store_last.get(url, 0) < self.store_interval:
@@ -626,7 +628,13 @@ class Watcher:
         # Exclusions (imports chinois, japonais… : « 30 ans » dans le nom mais hors gamme française).
         banned = [_plain(w) for w in s.get("cultura_exclude", [])]
         match = lambda n: any(w in _plain(n) for w in words) and not any(b in _plain(n) for b in banned)
-        kept = {u: n for u, n in tracked.items() if match(n)}
+        kept = {u: n for u, n in tracked.items() if match(n) or "/p-ref-" in u}
+        # Références Cultura données à la main (produits sans fiche sur le site) : toujours suivies.
+        for line in s.get("cultura_refs", []):
+            ref, _, lab = str(line).partition("|")
+            if ref.strip().isdigit():
+                kept.setdefault(f"https://www.cultura.com/p-ref-{ref.strip()}.html",
+                                (lab.strip() or f"Référence Cultura {ref.strip()}") + " (Cultura)")
         ignored = set(json.loads(self.store.get_meta("cultura_ignored") or "[]"))  # marketplace
         if len(kept) != len(tracked):
             print(f"[Cultura] {len(tracked) - len(kept)} fiche(s) retirée(s) du suivi (hors liste cultura_track)", flush=True)

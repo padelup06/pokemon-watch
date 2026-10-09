@@ -465,9 +465,12 @@ def cultura_store_stock_multi(fetcher, product_url: str, points: list[tuple[str,
         '{products(filter:{url_key:{eq:"%s"}},getDisabledProduct:1,resolverLight:1)'
         "{items{stock_item_extra{offer{front_availability,seller_code,qty}}}}}" % cultura_url_key(product_url)
     )
-    data = fetcher.fetch_json(_graphql_url(q), CULTURA)
-    items = ((data.get("data") or {}).get("products") or {}).get("items") or []
     sku = re.search(r"-(\d{6,})\.html", product_url)
+    if "/p-ref-" in product_url:
+        items = []  # référence seule : pas d'url_key à essayer
+    else:
+        data = fetcher.fetch_json(_graphql_url(q), CULTURA)
+        items = ((data.get("data") or {}).get("products") or {}).get("items") or []
     if not items and sku:
         # Adresse venue de la recherche du site : son url_key peut différer de celle de l'API ;
         # la référence Cultura (le nombre en fin d'adresse) désigne le produit à coup sûr.

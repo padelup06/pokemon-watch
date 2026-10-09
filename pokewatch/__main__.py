@@ -57,6 +57,8 @@ def main(argv: list[str] | None = None) -> int:
     ce.add_argument("ean")
     ce.add_argument("--visible", action="store_true")
     ce.add_argument("--nom", help="cherche aussi ce nom de produit")
+    cx = sub.add_parser("cultura-explorer", help="diagnostic : comment trouver les produits Cultura")
+    cx.add_argument("--visible", action="store_true")
     e = sub.add_parser("explorer")
     e.add_argument("url")
     e.add_argument("-o", "--output", default="exploration.json")
@@ -66,6 +68,52 @@ def main(argv: list[str] | None = None) -> int:
         from .explore import explore
 
         return explore(args.url, args.output)
+
+    if args.cmd == "cultura-explorer":
+        import json as _json
+        import re as _re
+
+        from .instore import CULTURA, _graphql_url
+
+        fetcher = Fetcher("always", headless=not args.visible)
+
+        def gql(title, q):
+            try:
+                res = fetcher.fetch_json(_graphql_url(q), CULTURA)
+                print(f"--- {title} ---\n{_json.dumps(res, ensure_ascii=False)[:3000]}")
+                return res
+            except Exception as e:
+                print(f"--- {title} ---\nerreur : {e}")
+                return None
+
+        try:
+            cats = gql("rayons « pokemon »", '{categoryList(filters:{name:{match:"pokemon"}}){id,uid,name,url_path,product_count}}')
+            gql("rayons « cartes »", '{categoryList(filters:{name:{match:"cartes a collectionner"}}){id,uid,name,url_path,product_count}}')
+            found = []
+            for c in ((cats or {}).get("data") or {}).get("categoryList") or []:
+                if isinstance(c, dict) and c.get("id") and c.get("product_count"):
+                    found.append(c)
+            for c in found[:3]:
+                gql(f"produits du rayon {c.get('name')} ({c['id']})",
+                    '{products(filter:{category_id:{eq:"%s"}},pageSize:30){total_count,items{sku,name,url_key}}}' % c["id"])
+            gql("recherche « pokemon »", '{products(search:"pokemon",pageSize:10){total_count,items{sku,name,url_key}}}')
+            for u in (f"{CULTURA}/robots.txt", f"{CULTURA}/sitemap.xml"):
+                try:
+                    code, text = fetcher.fetch_text(u, CULTURA)
+                    print(f"--- {u} (HTTP {code}) ---\n{text[:1500]}")
+                except Exception as e:
+                    print(f"--- {u} ---\nerreur : {e}")
+            try:
+                html = fetcher.get(f"{CULTURA}/search/results?search_query=pokemon%20mini%20tin", True)
+                links = sorted(set(_re.findall(r"/p-[^\"'?#\s]+\.html", html)))
+                print(f"--- page de recherche (rendue) : {len(html)} caractères, {len(links)} liens /p- ---")
+                print("\n".join(links[:15]))
+                print("titre :", (_re.findall(r"<title[^>]*>([^<]*)", html) or ["?"])[0])
+            except Exception as e:
+                print(f"--- page de recherche ---\nerreur : {e}")
+        finally:
+            fetcher.close()
+        return 0
 
     if args.cmd == "cultura-ean":
         import json as _json

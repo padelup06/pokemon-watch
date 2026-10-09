@@ -178,6 +178,25 @@ class BrowserFetcher:
             self._lost(e)
             raise FetchError(str(e)) from e
 
+    def fetch_text(self, url: str, origin: str, timeout: float = 30) -> tuple[int, str]:
+        """Comme fetch_json, mais renvoie (code HTTP, texte brut)."""
+        page = self._tab()
+        if not page.url.startswith(origin):
+            try:
+                page.goto(origin + "/", wait_until="domcontentloaded", timeout=timeout * 1000)
+                page.wait_for_timeout(3000)
+            except Exception as e:
+                self._lost(e)
+                raise FetchError(str(e)) from e
+        try:
+            return tuple(page.evaluate(
+                """async (u) => { const r = await fetch(u, {credentials: "include"}); return [r.status, await r.text()]; }""",
+                url,
+            ))
+        except Exception as e:
+            self._lost(e)
+            raise FetchError(str(e)) from e
+
     def fetch_json(self, url: str, origin: str, timeout: float = 30):
         """Appel d'API fait depuis une page du site (cookies et protections du site
         inclus), comme le ferait la page elle-même."""
@@ -239,6 +258,9 @@ class Fetcher:
 
     def fetch_json(self, url: str, origin: str):
         return self._browser.fetch_json(url, origin)
+
+    def fetch_text(self, url: str, origin: str) -> tuple[int, str]:
+        return self._browser.fetch_text(url, origin)
 
     @property
     def last_url(self) -> str | None:

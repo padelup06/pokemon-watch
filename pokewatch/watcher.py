@@ -9,6 +9,7 @@ import threading
 import json
 import time
 import tomllib
+import unicodedata
 from html import unescape
 from urllib.parse import urljoin
 
@@ -112,7 +113,11 @@ def extract_product_links(html: str, base_url: str) -> list[str]:
 
 
 def _plain(text: str) -> str:
-    return text.lower().replace("é", "e").replace("è", "e")
+    """Minuscules, sans accents, espaces normalisés (Cultura écrit « 30e\u00a0anniversaire »
+    avec une espace insécable, « 30ème », « 30ᵉ »…)."""
+    text = unicodedata.normalize("NFKD", str(text))
+    text = "".join(c for c in text if not unicodedata.combining(c))
+    return re.sub(r"[\s\-_]+", " ", text.lower()).strip()
 
 
 def shopify_links(text: str, base_url: str, title_words: list[str], product_types: list[str]) -> list[str]:
@@ -609,7 +614,8 @@ class Watcher:
             tracked = kept
             self.store.set_meta("cultura_tracked", json.dumps(tracked, ensure_ascii=False))
         last = float(self.store.get_meta("cultura_discover_last") or 0)
-        if time.time() - last >= float(s.get("cultura_discover_minutes", 30)) * 60:
+        every = float(s.get("cultura_discover_minutes", 30)) * 60
+        if time.time() - last >= (every if tracked else min(every, 300)):  # rien de suivi : relu plus tôt
             self.store.set_meta("cultura_discover_last", str(time.time()))
             try:
                 items = cultura_category_products(self.fetcher, cats)

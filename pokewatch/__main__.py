@@ -232,7 +232,10 @@ def main(argv: list[str] | None = None) -> int:
         tracked = _json.loads(store.get_meta("cultura_tracked") or "{}")
         print(f"Cultura : {len(tracked)} produit(s) 30 ans suivis, stock magasin déjà relevé pour {n_cult} produit(s).")
         if not args.tout:
-            rows = [r for r in rows if re.search(r"30\s*(e|è|ème|eme)?\s*anniv|30\s*ans|30th|30A", r["product"], re.I)]
+            from .watcher import _plain
+
+            words = [_plain(w) for w in cfg["settings"].get("cultura_track", [])] + ["30e anniv", "30 anniv", "30a "]
+            rows = [r for r in rows if any(w in _plain(r["product"]) for w in words)]
         if not rows:
             print(f"Aucun relevé pour un magasin « {args.nom} » (le stock magasin n'a peut-être pas encore été lu).")
             return 0

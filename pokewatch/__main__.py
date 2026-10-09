@@ -122,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "cultura-ean":
         import json as _json
 
-        from .instore import cultura_ean_probe, cultura_find_by_ean, cultura_name_probe, cultura_store_stock
+        from .instore import cultura_ean_probe, cultura_find_by_ean, cultura_name_probe
 
         fetcher = Fetcher("always", headless=not args.visible)
         try:

@@ -72,6 +72,8 @@ def main(argv: list[str] | None = None) -> int:
     c6 = sub.add_parser("cultura-boutiques", help="diagnostic : vues magasin du catalogue Cultura")
     c6.add_argument("--visible", action="store_true")
     c7 = sub.add_parser("cultura-reseau", help="diagnostic : services que le site Cultura appelle lui-même")
+    c7.add_argument("--pages", nargs="*", help="pages à visiter (défaut : accueil, fiche, recherche)")
+    c7.add_argument("--sortie", default="test-cultura-m2.json")
     c9 = sub.add_parser("cultura-filtres", help="diagnostic : filtres du catalogue Cultura")
     c9.add_argument("--visible", action="store_true")
     e = sub.add_parser("explorer")
@@ -186,11 +188,10 @@ def main(argv: list[str] | None = None) -> int:
 
         from .explore import _keep
 
-        pages = [
+        pages = args.pages or [
             "https://www.cultura.com/",
             "https://www.cultura.com/p-mini-tin-pokemon-mega-heroisme-modeles-aleatoires-vendu-a-l-unite-12369064.html",
             "https://www.cultura.com/search/results?search_query=pokemon%2030e%20anniversaire",
-            "https://www.cultura.com/fragments/encart-produit/pokemon-30e-anniversaire.plain.html",
         ]
         seen: dict[str, int] = {}
         hits: list[str] = []
@@ -207,7 +208,8 @@ def main(argv: list[str] | None = None) -> int:
                 body = resp.text()
             except Exception:
                 return
-            if any(x in u.path for x in ("/m2/graphql", "/fragments/encart-produit", "/config.json", "product.model.json")):
+            if any(x in u.path for x in ("/m2/graphql", "/fragments/encart-produit", "/config.json", "product.model.json")) \
+                    or "eresa" in u.netloc:
                 saved.append({"method": req.method, "url": req.url, "post_data": req.post_data,
                               "status": resp.status, "body": body[:60000]})
             for word in ("13200180", "anniversaire", "Anniversaire", "instore", "Instore"):
@@ -227,14 +229,20 @@ def main(argv: list[str] | None = None) -> int:
                     page.mouse.wheel(0, 3000)
                     page.wait_for_timeout(4000)
                     print(f"--- {url} → {page.url} (titre : {page.title()[:60]})")
+                    if "eresa" in url:
+                        html = page.content()
+                        saved.append({"method": "PAGE", "url": page.url, "post_data": None, "status": 200,
+                                      "body": html[:60000]})
+                        links = sorted(set(re.findall(r'(?:href|src)="([^"]+)"', html)))
+                        print("    liens / scripts : " + " ".join(links[:60]))
                 except Exception as e:
                     print(f"--- {url} : erreur {e}")
             browser.close()
         import json as _json
 
-        with open("test-cultura-m2.json", "w", encoding="utf-8") as f:
+        with open(args.sortie, "w", encoding="utf-8") as f:
             _json.dump(saved, f, ensure_ascii=False, indent=1)
-        print(f"\n{len(saved)} réponses du 2e catalogue / encarts enregistrées dans test-cultura-m2.json")
+        print(f"\n{len(saved)} réponses enregistrées dans {args.sortie}")
         print("\n--- services appelés par le site (nombre d'appels) ---")
         for k, n in sorted(seen.items()):
             print(f"{n:3d}  {k}")

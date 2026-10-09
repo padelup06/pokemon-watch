@@ -137,13 +137,13 @@ def main(argv: list[str] | None = None) -> int:
 
         pages = [
             "https://www.cultura.com/",
-            "https://www.cultura.com/p-new-pdp",
             "https://www.cultura.com/p-mini-tin-pokemon-mega-heroisme-modeles-aleatoires-vendu-a-l-unite-12369064.html",
-            "https://www.cultura.com/magasins/cultura-mandelieu.html",
             "https://www.cultura.com/search/results?search_query=pokemon%2030e%20anniversaire",
+            "https://www.cultura.com/fragments/encart-produit/pokemon-30e-anniversaire.plain.html",
         ]
         seen: dict[str, int] = {}
         hits: list[str] = []
+        saved: list[dict] = []  # appels au 2e catalogue (/m2/graphql), encarts, config : en entier
 
         def on_response(resp):
             req = resp.request
@@ -156,6 +156,9 @@ def main(argv: list[str] | None = None) -> int:
                 body = resp.text()
             except Exception:
                 return
+            if any(x in u.path for x in ("/m2/graphql", "/fragments/encart-produit", "/config.json", "product.model.json")):
+                saved.append({"method": req.method, "url": req.url, "post_data": req.post_data,
+                              "status": resp.status, "body": body[:60000]})
             for word in ("13200180", "anniversaire", "Anniversaire", "instore", "Instore"):
                 if word in body:
                     hits.append(f"{key} contient « {word} »")
@@ -176,6 +179,11 @@ def main(argv: list[str] | None = None) -> int:
                 except Exception as e:
                     print(f"--- {url} : erreur {e}")
             browser.close()
+        import json as _json
+
+        with open("test-cultura-m2.json", "w", encoding="utf-8") as f:
+            _json.dump(saved, f, ensure_ascii=False, indent=1)
+        print(f"\n{len(saved)} réponses du 2e catalogue / encarts enregistrées dans test-cultura-m2.json")
         print("\n--- services appelés par le site (nombre d'appels) ---")
         for k, n in sorted(seen.items()):
             print(f"{n:3d}  {k}")

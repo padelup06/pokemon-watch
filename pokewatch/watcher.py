@@ -615,11 +615,14 @@ class Watcher:
                 for it in items:
                     url = f"https://www.cultura.com/p-{it['url_key']}.html"
                     name = str(it.get("name") or it["url_key"])
+                    wanted = any(w in _plain(name) for w in words)
                     if self.store.add_product(url, "cultura", f"{name} (Cultura)"):
                         new_count += 1
-                        if not first:
+                        # Nouvelles fiches : seulement celles qui intéressent (cultura_track),
+                        # sauf cultura_new_all = true.
+                        if not first and (wanted or s.get("cultura_new_all", False)):
                             self.notifier.send(f"🆕 NOUVELLE FICHE chez Cultura : {name}\n{url}")
-                    if url not in tracked and any(w in _plain(name) for w in words):
+                    if url not in tracked and wanted:
                         tracked[url] = f"{name} (Cultura)"
                         print(f"[Cultura] suivi automatique : {name}", flush=True)
                 self.store.set_meta("cultura_discover_init", "1")
@@ -683,21 +686,23 @@ class Watcher:
         groups: dict[str, list[dict]] = {}
         for p in self.cfg["watchlist"]:
             groups.setdefault(retailer_for_url(p["url"]).key, []).append(p)
+        if self.cfg["settings"].get("cultura_categories") and self.fetcher.browser_mode != "never":
+            groups.setdefault("cultura", [])  # rayons Cultura lus même sans ligne Cultura dans produits.txt
 
-        def worker(products: list[dict]) -> None:
+        def worker(key: str, products: list[dict]) -> None:
             while True:  # navigateur qui ne démarre pas : on réessaie au lieu d'abandonner l'enseigne
                 try:
                     w = make_watcher()
                     break
                 except Exception as e:
-                    print(f"⚠ démarrage impossible pour {products[0]['url']} : {e!r} — nouvel essai dans 1 min", flush=True)
+                    print(f"⚠ démarrage impossible pour {key} : {e!r} — nouvel essai dans 1 min", flush=True)
                     if stop.wait(60):
                         return
             done = 0
             try:
                 while not stop.is_set() and (cycles is None or done < cycles):
                     batch = products
-                    if retailer_for_url(products[0]["url"]).key == "cultura":
+                    if key == "cultura":
                         try:
                             known = {p["url"] for p in products}
                             batch = products + [p for p in w.cultura_discover() if p["url"] not in known]
@@ -719,7 +724,7 @@ class Watcher:
             finally:
                 w.fetcher.close()
 
-        threads = [threading.Thread(target=worker, args=(prods,), name=key, daemon=True) for key, prods in groups.items()]
+        threads = [threading.Thread(target=worker, args=(key, prods), name=key, daemon=True) for key, prods in groups.items()]
         for t in threads:
             t.start()
         print(f"— {len(threads)} enseignes surveillées en parallèle : {', '.join(groups)} —", flush=True)

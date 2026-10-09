@@ -37,25 +37,9 @@ https://www.lagranderecre.fr/jeux-de-societe/cartes-a-collectionner/coffret-dres
 # Lot de 2 tripacks : pas encore référencé chez La Grande Récré (stock magasin dès qu'il le sera)
 https://www.lagranderecre.fr/cartes-a-collectionner/?ean=0196214144972 | 30e anniv. — Collection autocollant (version aléatoire) (LGR) — EAN 0196214144972
 
-# Cultura — produits sans fiche en ligne : recherche par code-barres (EAN).
-# Alerte « fiche en ligne » dès que Cultura publie la fiche, puis suivi du stock (PC uniquement).
-https://www.cultura.com/search/results?search_query=0196214147225 | 30e anniv. — Coffret Collection Poster (Cultura)
-https://www.cultura.com/search/results?search_query=0196214147102 | 30e anniv. — Coffret 4 boosters Nymphali-ex (Cultura)
-https://www.cultura.com/search/results?search_query=0196214147164 | 30e anniv. — Coffret 4 boosters Amphinobi-ex (Cultura)
-https://www.cultura.com/search/results?search_query=0196214145221 | 30e anniv. — Bundle 6 boosters (Cultura)
-https://www.cultura.com/search/results?search_query=0196214146297 | 30e anniv. — Mini Tin (Cultura)
-https://www.cultura.com/search/results?search_query=0196214152311 | 30e anniv. — 2 boosters Évoli (Cultura)
-https://www.cultura.com/search/results?search_query=0196214144835 | 30e anniv. — Coffret Dresseur d'Élite (Cultura)
-https://www.cultura.com/search/results?search_query=0196214144972 | 30e anniv. — Collection autocollant (version aléatoire) (Cultura)
-https://www.cultura.com/search/results?search_query=0196214146976 | Pokébox Nymphali-ex (Cultura)
-https://www.cultura.com/search/results?search_query=0196214147034 | Pokébox Amphinobi-ex (Cultura)
-https://www.cultura.com/search/results?search_query=0196214146907 | Pokébox (code commun Nymphali/Amphinobi) (Cultura)
-https://www.cultura.com/search/results?search_query=0196214145450 | Coffret Mew (Cultura)
-https://www.cultura.com/search/results?search_query=0196214145511 | Coffret Mewtwo (Cultura)
-https://www.cultura.com/search/results?search_query=0196214143913 | Règne Delta (ME06) — ETB 56,99 €, sortie 6/11 (Cultura)
-https://www.cultura.com/search/results?search_query=0196214145153 | 30e anniv. — Coffret Collection classeur (sortie 23/10) (Cultura)
-https://www.cultura.com/search/results?search_query=0196214145030 | 30e anniv. — Collection autocollant Noadkoko d'Alola (Cultura)
-https://www.cultura.com/search/results?search_query=0196214145092 | 30e anniv. — Collection autocollant Lucario (Cultura)
+# Cultura — les produits 30 ans sont trouvés tout seuls dans les rayons Pokémon de Cultura
+# (config.pc.toml : cultura_categories / cultura_track) : une fiche par visuel, stock de tous les
+# magasins de France. Rien à mettre ici ; une fiche Cultura précise peut quand même être ajoutée.
 
 # E.Leclerc — recherche par code-barres : alerte « fiche en ligne » dès que Leclerc publie la
 # fiche, puis suivi du stock en ligne vendu par Leclerc (retrait gratuit en magasin).

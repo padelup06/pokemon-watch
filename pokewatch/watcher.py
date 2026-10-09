@@ -600,6 +600,14 @@ class Watcher:
         if not cats or self.fetcher.browser_mode == "never":
             return []
         tracked = json.loads(self.store.get_meta("cultura_tracked") or "{}")
+        # Mots de suivi changés (ex. seulement les 30 ans) : on oublie les fiches qui ne
+        # correspondent plus, même suivies par une version précédente.
+        words = [_plain(w) for w in s.get("cultura_track", [])]
+        kept = {u: n for u, n in tracked.items() if any(w in _plain(n) for w in words)}
+        if len(kept) != len(tracked):
+            print(f"[Cultura] {len(tracked) - len(kept)} fiche(s) retirée(s) du suivi (hors liste cultura_track)", flush=True)
+            tracked = kept
+            self.store.set_meta("cultura_tracked", json.dumps(tracked, ensure_ascii=False))
         last = float(self.store.get_meta("cultura_discover_last") or 0)
         if time.time() - last >= float(s.get("cultura_discover_minutes", 30)) * 60:
             self.store.set_meta("cultura_discover_last", str(time.time()))
@@ -610,7 +618,6 @@ class Watcher:
                 items = []
             if items:
                 first = self.store.get_meta("cultura_discover_init") is None
-                words = [_plain(w) for w in s.get("cultura_track", [])]
                 new_count = 0
                 for it in items:
                     url = f"https://www.cultura.com/p-{it['url_key']}.html"

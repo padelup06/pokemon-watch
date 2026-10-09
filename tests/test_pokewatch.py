@@ -570,6 +570,10 @@ class CulturaDiscoverTests(unittest.TestCase):
         self.assertEqual(len(tracked), 2)
         self.assertEqual(len(sent), 1)
         self.assertIn("Coffret 30e anniversaire Poster", sent[0])
+        # Ancien suivi plus large (version précédente) : retiré dès le passage suivant.
+        w.store.set_meta("cultura_tracked", json.dumps({"https://www.cultura.com/p-pokebox.html": "Pokébox (Cultura)",
+                                                         "https://www.cultura.com/p-mini-tin-30-mewtwo.html": "Mini Tin Pokémon 30e anniversaire Mewtwo (Cultura)"}))
+        self.assertEqual([t["url"] for t in w.cultura_discover()], ["https://www.cultura.com/p-mini-tin-30-mewtwo.html"])
 
 
 class ShopifyTests(unittest.TestCase):

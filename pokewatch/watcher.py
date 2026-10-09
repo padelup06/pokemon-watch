@@ -608,7 +608,10 @@ class Watcher:
         # Mots de suivi changés (ex. seulement les 30 ans) : on oublie les fiches qui ne
         # correspondent plus, même suivies par une version précédente.
         words = [_plain(w) for w in s.get("cultura_track", [])]
-        kept = {u: n for u, n in tracked.items() if any(w in _plain(n) for w in words)}
+        # Exclusions (imports chinois, japonais… : « 30 ans » dans le nom mais hors gamme française).
+        banned = [_plain(w) for w in s.get("cultura_exclude", [])]
+        match = lambda n: any(w in _plain(n) for w in words) and not any(b in _plain(n) for b in banned)
+        kept = {u: n for u, n in tracked.items() if match(n)}
         if len(kept) != len(tracked):
             print(f"[Cultura] {len(tracked) - len(kept)} fiche(s) retirée(s) du suivi (hors liste cultura_track)", flush=True)
             tracked = kept
@@ -647,7 +650,7 @@ class Watcher:
                 for it in items:
                     url = f"https://www.cultura.com/p-{it['url_key']}.html"
                     name = str(it.get("name") or it["url_key"])
-                    wanted = any(w in _plain(name) for w in words)
+                    wanted = match(name)
                     if self.store.add_product(url, "cultura", f"{name} (Cultura)"):
                         new_count += 1
                         # Nouvelles fiches : seulement celles qui intéressent (cultura_track),

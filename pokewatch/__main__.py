@@ -231,6 +231,11 @@ def main(argv: list[str] | None = None) -> int:
         import json as _json
         tracked = _json.loads(store.get_meta("cultura_tracked") or "{}")
         print(f"Cultura : {len(tracked)} produit(s) 30 ans suivis, stock magasin déjà relevé pour {n_cult} produit(s).")
+        for u, n in tracked.items():
+            row = store.db.execute("SELECT status, store_check, last_error FROM products WHERE url = ?", (u,)).fetchone()
+            etat = "jamais lu" if row is None or not row["store_check"] else f"magasins lus {row['store_check'][11:16]}"
+            err = f", erreur : {row['last_error'][:60]}" if row is not None and row["last_error"] else ""
+            print(f"   - {n} [{(row['status'] if row else None) or '?'}, {etat}{err}]")
         if not args.tout:
             from .watcher import _plain
 

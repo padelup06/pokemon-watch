@@ -42,9 +42,11 @@ ean_search_seconds = 300         # recherches par code-barres (Cultura, Leclerc�
 # apparaît, puis suivi automatique (stock en ligne et dans tous les magasins de France, avec
 # quantités). Les autres produits Pokémon de Cultura sont ignorés.
 cultura_categories = [46096, 46098, 46097, 30120]
-cultura_search_terms = ["pokemon 30e anniversaire", "pokemon 30 ans", "mini tin pokemon 30e anniversaire"]
+cultura_search_terms = ["pokemon 30e anniversaire", "mini tin pokemon 30e anniversaire",
+                        "coffret pokemon 30e anniversaire", "dresseur elite pokemon 30e anniversaire"]
 cultura_discover_minutes = 30
 cultura_track = ["30e anniversaire", "30eme anniversaire", "30 ans", "30th"]
+cultura_exclude = ["chinois", "japonais", "coreen", "import", "anglais"]   # éditions étrangères ignorées
 cultura_catalog_file = "cultura-catalogue.txt"   # liste des fiches lues (SUIVI = suivie), à envoyer à Claude
 
 heartbeat = true                 # signale à GitHub que le PC tourne (alerte Discord s'il s'arrête)

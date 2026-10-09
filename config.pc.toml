@@ -36,14 +36,15 @@ store_check_seconds = 600        # stock magasin : toutes les 10 min par produit
 store_error_pause_seconds = 300  # après une erreur de l'API magasin : pause de 5 min pour cette enseigne
 ean_search_seconds = 300         # recherches par code-barres (Cultura, Leclerc…) : au plus toutes les 5 min ; pause 15 min après un HTTP 429
 
-# Cultura : rayons Booster, Coffret et Deck Pokémon et « Cartes Pokemon » lus dans leur système
+# Cultura : rayons Booster, Coffret et Deck Pokémon et « Cartes Pokemon » lus dans leur système,
+# plus la recherche du site (les Mini Tin 30 ans, une fiche par visuel, n'y sont pas rangés),
 # toutes les 30 min. Seuls les produits 30 ans comptent : alerte quand une nouvelle fiche 30 ans
 # apparaît, puis suivi automatique (stock en ligne et dans tous les magasins de France, avec
 # quantités). Les autres produits Pokémon de Cultura sont ignorés.
 cultura_categories = [46096, 46098, 46097, 30120]
+cultura_search_terms = ["pokemon 30e anniversaire", "pokemon 30 ans", "mini tin pokemon 30e anniversaire"]
 cultura_discover_minutes = 30
-# (« Q3 26 » : nom fournisseur de la vague 30 ans, ex. « Bundle 6 boosters Q3 26 » sans « 30 ans » dans le nom.)
-cultura_track = ["30e anniversaire", "30eme anniversaire", "30 ans", "30th", "q3 26", "q3-26", "q3 2026"]
+cultura_track = ["30e anniversaire", "30eme anniversaire", "30 ans", "30th"]
 cultura_catalog_file = "cultura-catalogue.txt"   # liste des fiches lues (SUIVI = suivie), à envoyer à Claude
 
 heartbeat = true                 # signale à GitHub que le PC tourne (alerte Discord s'il s'arrête)

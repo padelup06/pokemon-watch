@@ -622,6 +622,25 @@ class Watcher:
             except FetchError as e:
                 print(f"[Cultura] rayons Pokémon illisibles : {e}", flush=True)
                 items = []
+            # Les fiches 30 ans (Mini Tin par visuel…) ne sont pas toutes rangées dans ces rayons :
+            # la recherche du site les trouve (vérifié le 9/10 : « pokemon mini tin »).
+            known = {it["url_key"] for it in items}
+            for term in s.get("cultura_search_terms", []):
+                try:
+                    html = self.fetcher.get(
+                        "https://www.cultura.com/search/results?search_query=" + term.replace(" ", "%20"), True)
+                except FetchError as e:
+                    print(f"[Cultura] recherche « {term} » impossible : {e}", flush=True)
+                    continue
+                for key in dict.fromkeys(re.findall(r"/p-([a-z0-9-]+)\.html", html)):
+                    # Produits du jeu de cartes seulement (pas les livres, peluches… « Pokémon 30 ans »).
+                    if not re.search(r"booster|coffret|tin|bundle|tripack|display|deck|classeur|carte|dresseur|pokebox", key):
+                        continue
+                    if key not in known:
+                        known.add(key)
+                        # Nom tiré de l'adresse (« mini-tin-pokemon-30e-anniversaire-… »).
+                        items.append({"url_key": key, "name": re.sub(r"-\d{6,}$", "", key).replace("-", " ").capitalize()})
+                self._pause("https://www.cultura.com/")
             if items:
                 first = self.store.get_meta("cultura_discover_init") is None
                 new_count = 0

@@ -575,6 +575,16 @@ class CulturaDiscoverTests(unittest.TestCase):
         w.store.set_meta("cultura_tracked", json.dumps({"https://www.cultura.com/p-pokebox.html": "Pokébox (Cultura)",
                                                          "https://www.cultura.com/p-mini-tin-30-mewtwo.html": "Mini Tin Pokémon 30e anniversaire Mewtwo (Cultura)"}))
         self.assertEqual([t["url"] for t in w.cultura_discover()], ["https://www.cultura.com/p-mini-tin-30-mewtwo.html"])
+        # Recherche du site : fiches 30 ans absentes des rayons, livres écartés.
+        w.cfg["settings"]["cultura_search_terms"] = ["pokemon 30e anniversaire"]
+        w.fetcher.get = lambda url, needs_browser=False: (
+            '<a href="/p-mini-tin-pokemon-30e-anniversaire-pikachu-version-jour-asmodee-13486069.html">'
+            '<a href="/p-pokemon-30e-anniversaire-le-livre-officiel-9782.html">')
+        w._pause = lambda url=None: None
+        w.store.set_meta("cultura_discover_last", "0")
+        urls = [t["url"] for t in w.cultura_discover()]
+        self.assertIn("https://www.cultura.com/p-mini-tin-pokemon-30e-anniversaire-pikachu-version-jour-asmodee-13486069.html", urls)
+        self.assertFalse(any("livre" in u for u in urls))
 
 
 class ShopifyTests(unittest.TestCase):

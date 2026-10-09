@@ -61,6 +61,9 @@ RETAILERS: dict[str, Retailer] = {
             in_stock_keywords=_COMMON_IN,
             out_of_stock_keywords=_COMMON_OUT,
             needs_browser=True,  # Cloudflare
+            # Marketplace Cultura (« vendeur sélectionné par Cultura », ex. Bundle 30 ans à 129,95 €) :
+            # seules les offres vendues par Cultura comptent.
+            own_seller=re.compile(r"^\s*cultura\b", re.I),
         ),
         Retailer(
             key="joueclub",

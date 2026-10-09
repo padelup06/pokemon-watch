@@ -44,6 +44,7 @@ ean_search_seconds = 300         # recherches par code-barres (Cultura, Leclerc�
 cultura_categories = [46096, 46098, 46097, 30120]
 cultura_search_terms = ["pokemon 30e anniversaire", "mini tin pokemon 30e anniversaire",
                         "coffret pokemon 30e anniversaire", "dresseur elite pokemon 30e anniversaire"]
+cultura_api_search = ["anniversaire pokemon", "30e anniversaire", "mini tin"]   # système Cultura : produits vendus par Cultura
 cultura_discover_minutes = 30
 cultura_track = ["30e anniversaire", "30eme anniversaire", "30 ans", "30th"]
 cultura_exclude = ["chinois", "japonais", "coreen", "import", "anglais"]   # éditions étrangères ignorées

@@ -20,6 +20,7 @@ from .instore import (
     STORE_RETAILERS,
     cultura_category_products,
     cultura_find_by_ean,
+    cultura_search_products,
     cultura_store_stock,
     cultura_store_stock_multi,
     geocode,
@@ -501,6 +502,17 @@ class Watcher:
                 # autres produits de l'enseigne continuent d'être relevés.
                 print(f"[{retailer.name}] magasins : {e} — {name or url}", flush=True)
                 self.store.set_error(url, f"magasins : {e}")
+                if retailer.key == "cultura" and "introuvable dans l'API" in str(e):
+                    # Fiche de la marketplace Cultura (vendeur partenaire) : pas de stock magasin,
+                    # et pas Cultura qui vend. On arrête de la suivre.
+                    tracked = json.loads(self.store.get_meta("cultura_tracked") or "{}")
+                    ignored = set(json.loads(self.store.get_meta("cultura_ignored") or "[]"))
+                    if url in tracked:
+                        tracked.pop(url)
+                        ignored.add(url)
+                        self.store.set_meta("cultura_tracked", json.dumps(tracked, ensure_ascii=False))
+                        self.store.set_meta("cultura_ignored", json.dumps(sorted(ignored)))
+                        print(f"[Cultura] fiche d'un vendeur partenaire, plus suivie : {name or url}", flush=True)
                 return
             # Pause doublée à chaque échec consécutif (5, 10, 20, 40 min, puis 1 h) : un serveur
             # qui refuse une connexion (502 en série chez l'utilisateur) se débloque mieux sans
@@ -615,6 +627,7 @@ class Watcher:
         banned = [_plain(w) for w in s.get("cultura_exclude", [])]
         match = lambda n: any(w in _plain(n) for w in words) and not any(b in _plain(n) for b in banned)
         kept = {u: n for u, n in tracked.items() if match(n)}
+        ignored = set(json.loads(self.store.get_meta("cultura_ignored") or "[]"))  # marketplace
         if len(kept) != len(tracked):
             print(f"[Cultura] {len(tracked) - len(kept)} fiche(s) retirée(s) du suivi (hors liste cultura_track)", flush=True)
             tracked = kept
@@ -628,6 +641,14 @@ class Watcher:
             except FetchError as e:
                 print(f"[Cultura] rayons Pokémon illisibles : {e}", flush=True)
                 items = []
+            # Recherche dans le système Cultura : produits vendus par Cultura lui-même (stock magasin).
+            for term in s.get("cultura_api_search", []):
+                try:
+                    for it in cultura_search_products(self.fetcher, term):
+                        if "pokemon" in _plain(it.get("name") or "") and it["url_key"] not in {i["url_key"] for i in items}:
+                            items.append(it)
+                except FetchError as e:
+                    print(f"[Cultura] recherche « {term} » dans le système impossible : {e}", flush=True)
             # Les fiches 30 ans (Mini Tin par visuel…) ne sont pas toutes rangées dans ces rayons :
             # la recherche du site les trouve (vérifié le 9/10 : « pokemon mini tin »).
             known = {it["url_key"] for it in items}
@@ -660,7 +681,7 @@ class Watcher:
                         # sauf cultura_new_all = true.
                         if not first and (wanted or s.get("cultura_new_all", False)):
                             self.notifier.send(f"🆕 NOUVELLE FICHE chez Cultura : {name}\n{url}")
-                    if url not in tracked and wanted:
+                    if url not in tracked and wanted and url not in ignored:
                         tracked[url] = f"{name} (Cultura)"
                         print(f"[Cultura] suivi automatique : {name}", flush=True)
                 # Liste complète des fiches lues, pour vérifier à l'œil ce qui est suivi ou non.

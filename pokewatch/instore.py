@@ -407,6 +407,25 @@ def cultura_category_products(fetcher, category_ids: list) -> list[dict]:
     return items
 
 
+def cultura_search_products(fetcher, term: str, pages: int = 3) -> list[dict]:
+    """Recherche plein texte dans le système Cultura (« anniversaire »…) : [{sku, name, url_key}].
+    Ne renvoie que les produits vendus par Cultura (pas sa marketplace), ceux dont le stock
+    magasin existe."""
+    items = []
+    for page in range(1, pages + 1):
+        q = ('{products(search:"%s",pageSize:100,currentPage:%d){total_count,items{sku,name,url_key}}}'
+             % (term.replace('"', ""), page))
+        data = fetcher.fetch_json(_graphql_url(q), CULTURA)
+        products = ((data.get("data") or {}) if isinstance(data, dict) else {}).get("products")
+        if not isinstance(products, dict):
+            raise FetchError("recherche Cultura illisible")
+        batch = [it for it in products.get("items") or [] if isinstance(it, dict) and it.get("url_key")]
+        items += batch
+        if len(batch) < 100:
+            break
+    return items
+
+
 def cultura_nearby_stores(fetcher, location: str, radius_km: int) -> list[dict]:
     key = (location, radius_km)
     cached = _cultura_stores_cache.get(key)

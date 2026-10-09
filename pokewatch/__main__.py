@@ -152,6 +152,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.cmd == "test":
+        if "cultura.com" in args.url:
+            args.url = args.url.split("?")[0].split("#")[0]  # lien copié avec « ?__cf_chl_tk=… »
         retailer = retailer_for_url(args.url)
         fetcher = Fetcher(args.browser, headless=not args.visible)
         try:
@@ -210,6 +212,8 @@ def main(argv: list[str] | None = None) -> int:
                 if st.store_id in qty:
                     n, capped = qty[st.store_id]
                     q = f" — ~{n}{'+' if capped else ''} exemplaires"
+                elif st.qty:
+                    q = f" — ~{st.qty} exemplaires"
                 print(f"  {'✅' if st.in_stock else '❌'} {st.name}{dist} : {st.label}{q}")
         return 0
 

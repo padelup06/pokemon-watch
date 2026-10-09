@@ -17,6 +17,7 @@ from .instore import (
     PROXIMIS_RETAILERS,
     QUANTITY_RETAILERS,
     STORE_RETAILERS,
+    cultura_find_by_ean,
     cultura_store_stock,
     cultura_store_stock_multi,
     geocode,
@@ -363,7 +364,8 @@ class Watcher:
                 self._send(format_restock_alert(retailer.name, name, url, restock), image=av.image)
         # Code-barres noté dans le libellé (« … EAN 0196… ») : stock magasin lisible même
         # sans fiche publiée (JouéClub, La Grande Récré).
-        if self.zones and retailer.key in STORE_RETAILERS and (av.status != UNKNOWN or ean):
+        # Cultura : son API magasins répond même quand la fiche n'est pas (encore) visible.
+        if self.zones and retailer.key in STORE_RETAILERS and (av.status != UNKNOWN or ean or retailer.key == "cultura"):
             self.check_stores(url, retailer, name, html, ean)
 
     def check_ean_search(self, url: str, label: str | None) -> None:
@@ -396,6 +398,17 @@ class Watcher:
             if final and not (retailer.product_url.match(final) and final.endswith(ean)):
                 final = None
             return self._ean_result(url, retailer, ean, label, final)
+        if retailer.key == "cultura":
+            # API Cultura : le produit peut y exister (stock magasin compris) avant que sa fiche
+            # soit visible sur le site ; c'est ainsi que d'autres alertes lisent ses quantités.
+            try:
+                hit = cultura_find_by_ean(self.fetcher, ean)
+            except Exception as e:
+                hit = None
+                print(f"[{retailer.name}] recherche {ean} dans l'API : {e!r}")
+            if hit:
+                print(f"[{retailer.name}] recherche {ean} : produit trouvé dans l'API ({hit[2]})")
+                return self._ean_result(url, retailer, ean, label, f"https://www.cultura.com/p-{hit[0]}.html")
         try:
             html = self.fetcher.get(url, retailer.needs_browser)
         except FetchError as e:

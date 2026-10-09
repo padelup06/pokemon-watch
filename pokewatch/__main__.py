@@ -53,6 +53,9 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("--host", default="127.0.0.1")
     d.add_argument("--port", type=int, default=8000)
     sub.add_parser("notify-test")
+    ce = sub.add_parser("cultura-ean", help="cherche un code-barres dans l'API Cultura (diagnostic)")
+    ce.add_argument("ean")
+    ce.add_argument("--visible", action="store_true")
     e = sub.add_parser("explorer")
     e.add_argument("url")
     e.add_argument("-o", "--output", default="exploration.json")
@@ -62,6 +65,30 @@ def main(argv: list[str] | None = None) -> int:
         from .explore import explore
 
         return explore(args.url, args.output)
+
+    if args.cmd == "cultura-ean":
+        import json as _json
+
+        from .instore import cultura_ean_probe, cultura_find_by_ean, cultura_store_stock
+
+        fetcher = Fetcher("always", headless=not args.visible)
+        try:
+            for how, res in cultura_ean_probe(fetcher, args.ean):
+                print(f"--- {how} ---\n{_json.dumps(res, ensure_ascii=False)[:1500]}")
+            hit = cultura_find_by_ean(fetcher, args.ean)
+            print(f"\nRésultat : {hit}")
+            if hit:
+                url = f"https://www.cultura.com/p-{hit[0]}.html"
+                for cp in ("06000", "38300", "75001"):
+                    try:
+                        stores = cultura_store_stock(fetcher, url, cp, 40)
+                        print(f"{cp} : " + ", ".join(f"{s.name} {'OUI' if s.in_stock else 'non'}"
+                                                     f"{f' ({s.qty})' if s.qty else ''}" for s in stores))
+                    except Exception as e:
+                        print(f"{cp} : erreur {e!r}")
+        finally:
+            fetcher.close()
+        return 0
 
     if args.cmd == "test":
         retailer = retailer_for_url(args.url)

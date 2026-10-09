@@ -330,6 +330,45 @@ def cultura_url_key(product_url: str) -> str:
     return m.group(1)
 
 
+# Recherche d'un produit Cultura par code-barres dans son API (même sans fiche visible sur le
+# site : getDisabledProduct). Plusieurs formes essayées, la première qui répond gagne.
+_CULTURA_EAN_QUERIES = (
+    ("sku", '{products(filter:{sku:{eq:"%s"}},getDisabledProduct:1,resolverLight:1){items{sku,url_key,name}}}'),
+    ("ean", '{products(filter:{ean:{eq:"%s"}},getDisabledProduct:1,resolverLight:1){items{sku,url_key,name}}}'),
+    ("recherche", '{products(search:"%s",pageSize:3){items{sku,url_key,name}}}'),
+)
+
+
+def cultura_ean_probe(fetcher, ean: str) -> list[tuple[str, object]]:
+    """Diagnostic : réponse brute de chaque forme de recherche par code-barres."""
+    out = []
+    for how, q in _CULTURA_EAN_QUERIES:
+        try:
+            out.append((how, fetcher.fetch_json(_graphql_url(q % ean), CULTURA)))
+        except FetchError as e:
+            out.append((how, f"erreur : {e}"))
+    return out
+
+
+def cultura_find_by_ean(fetcher, ean: str) -> tuple[str, str | None, str] | None:
+    """(url_key, nom, méthode) du produit portant ce code-barres, ou None."""
+    short = ean.lstrip("0")
+    for how, q in _CULTURA_EAN_QUERIES:
+        try:
+            data = fetcher.fetch_json(_graphql_url(q % ean), CULTURA)
+        except FetchError:
+            continue
+        items = (((data or {}).get("data") or {}).get("products") or {}).get("items") if isinstance(data, dict) else None
+        for it in items or []:
+            if not isinstance(it, dict) or not it.get("url_key"):
+                continue
+            # La recherche plein texte peut renvoyer autre chose : on exige le même code.
+            if how == "recherche" and str(it.get("sku") or "").lstrip("0") != short:
+                continue
+            return it["url_key"], it.get("name"), how
+    return None
+
+
 def cultura_nearby_stores(fetcher, location: str, radius_km: int) -> list[dict]:
     key = (location, radius_km)
     cached = _cultura_stores_cache.get(key)

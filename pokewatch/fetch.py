@@ -178,7 +178,7 @@ class BrowserFetcher:
             self._lost(e)
             raise FetchError(str(e)) from e
 
-    def fetch_text(self, url: str, origin: str, timeout: float = 30) -> tuple[int, str]:
+    def fetch_text(self, url: str, origin: str, timeout: float = 30, headers: dict | None = None) -> tuple[int, str]:
         """Comme fetch_json, mais renvoie (code HTTP, texte brut)."""
         page = self._tab()
         if not page.url.startswith(origin):
@@ -190,8 +190,8 @@ class BrowserFetcher:
                 raise FetchError(str(e)) from e
         try:
             return tuple(page.evaluate(
-                """async (u) => { const r = await fetch(u, {credentials: "include"}); return [r.status, await r.text()]; }""",
-                url,
+                """async ([u, h]) => { const r = await fetch(u, {credentials: "include", headers: h}); return [r.status, await r.text()]; }""",
+                [url, headers or {}],
             ))
         except Exception as e:
             self._lost(e)
@@ -259,8 +259,8 @@ class Fetcher:
     def fetch_json(self, url: str, origin: str):
         return self._browser.fetch_json(url, origin)
 
-    def fetch_text(self, url: str, origin: str) -> tuple[int, str]:
-        return self._browser.fetch_text(url, origin)
+    def fetch_text(self, url: str, origin: str, headers: dict | None = None) -> tuple[int, str]:
+        return self._browser.fetch_text(url, origin, headers=headers)
 
     @property
     def last_url(self) -> str | None:

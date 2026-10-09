@@ -69,6 +69,8 @@ def main(argv: list[str] | None = None) -> int:
     cr.add_argument("--visible", action="store_true")
     c5 = sub.add_parser("cultura-pistes", help="diagnostic : plan du site et noms exacts")
     c5.add_argument("--visible", action="store_true")
+    c6 = sub.add_parser("cultura-boutiques", help="diagnostic : vues magasin du catalogue Cultura")
+    c6.add_argument("--visible", action="store_true")
     e = sub.add_parser("explorer")
     e.add_argument("url")
     e.add_argument("-o", "--output", default="exploration.json")
@@ -121,6 +123,35 @@ def main(argv: list[str] | None = None) -> int:
                 print("titre :", (_re.findall(r"<title[^>]*>([^<]*)", html) or ["?"])[0])
             except Exception as e:
                 print(f"--- page de recherche ---\nerreur : {e}")
+        finally:
+            fetcher.close()
+        return 0
+
+    if args.cmd == "cultura-boutiques":
+        import json as _json
+
+        from .instore import CULTURA, _graphql_url
+
+        fetcher = Fetcher("always", headless=not args.visible)
+
+        def ask(title, q, headers=None):
+            try:
+                code, text = fetcher.fetch_text(_graphql_url(q), CULTURA, headers=headers)
+                print(f"--- {title} (HTTP {code}) ---\n{text[:2500]}")
+                return _json.loads(text)
+            except Exception as e:
+                print(f"--- {title} : erreur {e}")
+                return None
+
+        try:
+            ask("boutique actuelle", "{storeConfig{store_code,store_name,website_code,root_category_id}}")
+            res = ask("boutiques disponibles", "{availableStores{store_code,store_name,website_code,is_default_store}}")
+            codes = [st.get("store_code") for st in (((res or {}).get("data") or {}).get("availableStores") or [])
+                     if isinstance(st, dict) and st.get("store_code")]
+            for code in codes[:8]:
+                for term in ("pokemon 30e anniversaire", "mini tin pokemon"):
+                    ask(f"boutique {code} — recherche « {term} »",
+                        '{products(search:"%s",pageSize:10){total_count,items{sku,name,url_key}}}' % term, {"Store": code})
         finally:
             fetcher.close()
         return 0

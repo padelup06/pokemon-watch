@@ -632,6 +632,14 @@ class Watcher:
                     if url not in tracked and wanted:
                         tracked[url] = f"{name} (Cultura)"
                         print(f"[Cultura] suivi automatique : {name}", flush=True)
+                # Liste complète des fiches lues, pour vérifier à l'œil ce qui est suivi ou non.
+                try:
+                    with open(s.get("cultura_catalog_file", "cultura-catalogue.txt"), "w", encoding="utf-8") as f:
+                        for it in sorted(items, key=lambda it: str(it.get("name"))):
+                            url = f"https://www.cultura.com/p-{it['url_key']}.html"
+                            f.write(f"{'SUIVI  ' if url in tracked else '       '}{it.get('name')} | {url}\n")
+                except OSError:
+                    pass
                 self.store.set_meta("cultura_discover_init", "1")
                 self.store.set_meta("cultura_tracked", json.dumps(tracked, ensure_ascii=False))
                 print(f"[Cultura] rayons Pokémon : {len(items)} fiches, {new_count} nouvelles, {len(tracked)} suivies", flush=True)

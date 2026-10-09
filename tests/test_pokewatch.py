@@ -553,7 +553,8 @@ class CulturaDiscoverTests(unittest.TestCase):
     def test_new_products_alert_and_tracking(self):
         tmp = tempfile.mkdtemp()
         cfg = {"settings": {"database": os.path.join(tmp, "t.db"), "browser": "auto",
-                            "cultura_categories": [46096], "cultura_track": ["30e anniversaire"]},
+                            "cultura_categories": [46096], "cultura_track": ["30e anniversaire"],
+                            "cultura_catalog_file": os.path.join(tmp, "cat.txt")},
                "alerts": {}}
         w = Watcher(cfg)
         catalog = [{"sku": "1", "name": "Mini Tin Pokémon 30e anniversaire Mewtwo", "url_key": "mini-tin-30-mewtwo"},

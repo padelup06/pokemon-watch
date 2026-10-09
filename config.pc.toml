@@ -42,7 +42,9 @@ ean_search_seconds = 300         # recherches par code-barres (Cultura, Leclerc�
 # quantités). Les autres produits Pokémon de Cultura sont ignorés.
 cultura_categories = [46096, 46098, 46097, 30120]
 cultura_discover_minutes = 30
-cultura_track = ["30e anniversaire", "30eme anniversaire", "30 ans", "30th"]
+# (« Q3 26 » : nom fournisseur de la vague 30 ans, ex. « Bundle 6 boosters Q3 26 » sans « 30 ans » dans le nom.)
+cultura_track = ["30e anniversaire", "30eme anniversaire", "30 ans", "30th", "q3 26", "q3-26", "q3 2026"]
+cultura_catalog_file = "cultura-catalogue.txt"   # liste des fiches lues (SUIVI = suivie), à envoyer à Claude
 
 heartbeat = true                 # signale à GitHub que le PC tourne (alerte Discord s'il s'arrête)
 

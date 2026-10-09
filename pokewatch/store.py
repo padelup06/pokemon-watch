@@ -80,6 +80,10 @@ class Store:
             self.db.execute("ALTER TABLE searches ADD COLUMN last_check TEXT")
         self.db.commit()
 
+    def set_error(self, url: str, error: str) -> None:
+        self.db.execute("UPDATE products SET last_error = ? WHERE url = ?", (error, url))
+        self.db.commit()
+
     def store_report(self, store: str) -> list[sqlite3.Row]:
         """Dernier état connu de chaque produit dans les magasins dont le nom contient `store`."""
         return self.db.execute(

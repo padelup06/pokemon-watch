@@ -500,6 +500,7 @@ class Watcher:
                 # Erreur propre à ce produit (fiche non publiée, pas de stock magasin…) : les
                 # autres produits de l'enseigne continuent d'être relevés.
                 print(f"[{retailer.name}] magasins : {e} — {name or url}", flush=True)
+                self.store.set_error(url, f"magasins : {e}")
                 return
             # Pause doublée à chaque échec consécutif (5, 10, 20, 40 min, puis 1 h) : un serveur
             # qui refuse une connexion (502 en série chez l'utilisateur) se débloque mieux sans
@@ -509,9 +510,11 @@ class Watcher:
             pause = min(self.store_backoff * 2 ** (fails - 1), 3600)
             self._store_pause[retailer.key] = time.time() + pause
             print(f"[{retailer.name}] ⚠ magasins : {e} — stock magasin en pause {pause // 60:.0f} min", flush=True)
+            self.store.set_error(url, f"magasins : {e}")
             return
         except (KeyError, TypeError, ValueError, AttributeError) as e:  # réponse de l'API inattendue
             print(f"[{retailer.name}] ⚠ magasins : réponse inattendue ({e!r}) — {name or url}", flush=True)
+            self.store.set_error(url, f"magasins : {e!r}")
             return
         if self._store_fails.pop(retailer.key, 0):
             print(f"[{retailer.name}] magasins : de nouveau accessibles", flush=True)

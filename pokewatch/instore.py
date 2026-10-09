@@ -448,6 +448,16 @@ def cultura_store_stock_multi(fetcher, product_url: str, points: list[tuple[str,
     )
     data = fetcher.fetch_json(_graphql_url(q), CULTURA)
     items = ((data.get("data") or {}).get("products") or {}).get("items") or []
+    sku = re.search(r"-(\d{6,})\.html", product_url)
+    if not items and sku:
+        # Adresse venue de la recherche du site : son url_key peut différer de celle de l'API ;
+        # la référence Cultura (le nombre en fin d'adresse) désigne le produit à coup sûr.
+        q = (
+            '{products(filter:{sku:{eq:"%s"}},getDisabledProduct:1,resolverLight:1)'
+            "{items{stock_item_extra{offer{front_availability,seller_code,qty}}}}}" % sku.group(1)
+        )
+        data = fetcher.fetch_json(_graphql_url(q), CULTURA)
+        items = ((data.get("data") or {}).get("products") or {}).get("items") or []
     if not items:
         raise FetchError("produit introuvable dans l'API Cultura")
     offers = {

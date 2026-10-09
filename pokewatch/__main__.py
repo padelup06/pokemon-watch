@@ -67,6 +67,8 @@ def main(argv: list[str] | None = None) -> int:
     cr.add_argument("--debut", type=int, default=13485900)
     cr.add_argument("--fin", type=int, default=13486300)
     cr.add_argument("--visible", action="store_true")
+    c5 = sub.add_parser("cultura-pistes", help="diagnostic : plan du site et noms exacts")
+    c5.add_argument("--visible", action="store_true")
     e = sub.add_parser("explorer")
     e.add_argument("url")
     e.add_argument("-o", "--output", default="exploration.json")
@@ -119,6 +121,50 @@ def main(argv: list[str] | None = None) -> int:
                 print("titre :", (_re.findall(r"<title[^>]*>([^<]*)", html) or ["?"])[0])
             except Exception as e:
                 print(f"--- page de recherche ---\nerreur : {e}")
+        finally:
+            fetcher.close()
+        return 0
+
+    if args.cmd == "cultura-pistes":
+        import json as _json
+
+        from .instore import CULTURA, _graphql_url
+
+        fetcher = Fetcher("always", headless=not args.visible)
+        try:
+            # 1. Plan du site (publié pour Google) : toutes les fiches, même absentes de la recherche.
+            try:
+                code, text = fetcher.fetch_text(f"{CULTURA}/sitemap.xml?param=one", CULTURA)
+                urls = re.findall(r"<loc>([^<]+)</loc>", text)
+                print(f"--- plan du site « one » : HTTP {code}, {len(text)} caractères, {len(urls)} adresses ---")
+                print("\n".join(urls[:10]))
+                subs = [u for u in urls if "sitemap" in u][:40]
+                hits = [u for u in urls if "pokemon" in u.lower() and ("anniv" in u.lower() or "30" in u)]
+                for sm in subs:
+                    try:
+                        c2, t2 = fetcher.fetch_text(sm.replace("&amp;", "&"), CULTURA)
+                        locs = re.findall(r"<loc>([^<]+)</loc>", t2)
+                        h = [u for u in locs if "pokemon" in u.lower() and ("anniv" in u.lower() or "30e" in u.lower() or "30-ans" in u.lower())]
+                        print(f"  {sm} : HTTP {c2}, {len(locs)} adresses, {len(h)} Pokémon 30 ans")
+                        hits += h
+                    except Exception as e:
+                        print(f"  {sm} : erreur {e}")
+                print("--- fiches Pokémon 30 ans dans le plan du site ---")
+                print("\n".join(dict.fromkeys(hits)) or "(aucune)")
+            except Exception as e:
+                print(f"--- plan du site : erreur {e}")
+            # 2. Noms exacts vus dans les alertes Pokecop.
+            for name in ("Mini Tin contenant 2 boosters", "Bundle de 6 boosters de cartes a collectionner",
+                         "Duopack de 2 boosters de cartes a collectionner", "30e Anniversaire"):
+                for how, q in (
+                    ("recherche", '{products(search:"%s",pageSize:20){total_count,items{sku,name,url_key}}}'),
+                    ("nom", '{products(filter:{name:{match:"%s"}},pageSize:20,getDisabledProduct:1){total_count,items{sku,name,url_key}}}'),
+                ):
+                    try:
+                        res = fetcher.fetch_json(_graphql_url(q % name), CULTURA)
+                        print(f"--- {how} « {name} » ---\n{_json.dumps(res, ensure_ascii=False)[:1500]}")
+                    except Exception as e:
+                        print(f"--- {how} « {name} » : erreur {e}")
         finally:
             fetcher.close()
         return 0

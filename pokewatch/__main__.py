@@ -222,7 +222,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "magasin":
         from .store import Store
 
-        rows = Store(cfg["settings"].get("database", "pokewatch.db")).store_report(args.nom)
+        store = Store(cfg["settings"].get("database", "pokewatch.db"))
+        rows = store.store_report(args.nom)
+        # État de la surveillance Cultura, pour comprendre une absence.
+        n_cult = store.db.execute(
+            "SELECT COUNT(DISTINCT s.url) FROM store_stock s JOIN products p ON p.url = s.url WHERE p.retailer = 'cultura'"
+        ).fetchone()[0]
+        import json as _json
+        tracked = _json.loads(store.get_meta("cultura_tracked") or "{}")
+        print(f"Cultura : {len(tracked)} produit(s) 30 ans suivis, stock magasin déjà relevé pour {n_cult} produit(s).")
         if not args.tout:
             rows = [r for r in rows if re.search(r"30\s*(e|è|ème|eme)?\s*anniv|30\s*ans|30th|30A", r["product"], re.I)]
         if not rows:

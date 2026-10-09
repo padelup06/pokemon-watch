@@ -56,6 +56,7 @@ def main(argv: list[str] | None = None) -> int:
     ce = sub.add_parser("cultura-ean", help="cherche un code-barres dans l'API Cultura (diagnostic)")
     ce.add_argument("ean")
     ce.add_argument("--visible", action="store_true")
+    ce.add_argument("--nom", help="cherche aussi ce nom de produit")
     e = sub.add_parser("explorer")
     e.add_argument("url")
     e.add_argument("-o", "--output", default="exploration.json")
@@ -69,7 +70,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "cultura-ean":
         import json as _json
 
-        from .instore import cultura_ean_probe, cultura_find_by_ean, cultura_store_stock
+        from .instore import cultura_ean_probe, cultura_find_by_ean, cultura_name_probe, cultura_store_stock
 
         fetcher = Fetcher("always", headless=not args.visible)
         try:
@@ -77,8 +78,16 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"--- {how} ---\n{_json.dumps(res, ensure_ascii=False)[:1500]}")
             hit = cultura_find_by_ean(fetcher, args.ean)
             print(f"\nRésultat : {hit}")
-            if hit:
-                url = f"https://www.cultura.com/p-{hit[0]}.html"
+            keys = [hit[0]] if hit else []
+            if args.nom:
+                for how, res in cultura_name_probe(fetcher, args.nom):
+                    print(f"--- nom / {how} ---\n{_json.dumps(res, ensure_ascii=False)[:3000]}")
+                    items = (((res or {}).get("data") or {}).get("products") or {}).get("items") if isinstance(res, dict) else None
+                    keys += [it["url_key"] for it in items or [] if isinstance(it, dict) and it.get("url_key")
+                             and "tin" in str(it.get("name", "")).lower()]
+            for key in list(dict.fromkeys(keys))[:3]:
+                url = f"https://www.cultura.com/p-{key}.html"
+                print(f"\nStock magasins pour {url}")
                 for cp in ("06000", "38300", "75001"):
                     try:
                         stores = cultura_store_stock(fetcher, url, cp, 40)

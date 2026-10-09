@@ -350,6 +350,24 @@ def cultura_ean_probe(fetcher, ean: str) -> list[tuple[str, object]]:
     return out
 
 
+_CULTURA_NAME_QUERIES = (
+    ("recherche", '{products(search:"%s",pageSize:10){items{sku,url_key,name}}}'),
+    ("recherche+masques", '{products(search:"%s",pageSize:10,getDisabledProduct:1){items{sku,url_key,name}}}'),
+    ("nom", '{products(filter:{name:{match:"%s"}},pageSize:10,getDisabledProduct:1){items{sku,url_key,name}}}'),
+)
+
+
+def cultura_name_probe(fetcher, name: str) -> list[tuple[str, object]]:
+    """Diagnostic : recherche d'un produit Cultura par son nom."""
+    out = []
+    for how, q in _CULTURA_NAME_QUERIES:
+        try:
+            out.append((how, fetcher.fetch_json(_graphql_url(q % name.replace('"', "")), CULTURA)))
+        except FetchError as e:
+            out.append((how, f"erreur : {e}"))
+    return out
+
+
 def cultura_find_by_ean(fetcher, ean: str) -> tuple[str, str | None, str] | None:
     """(url_key, nom, méthode) du produit portant ce code-barres, ou None."""
     short = ean.lstrip("0")

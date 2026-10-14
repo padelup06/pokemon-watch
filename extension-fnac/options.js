@@ -22,11 +22,16 @@ chrome.storage.local.get(["webhook", "webhook06", "zoneHooks", "products", "inte
       ? `\n   🔎 diagnostic : page « ${v.diag.titre} », ${v.diag.reperes} repères, offres : ` +
         (v.diag.offres.map((o) => `${o.seller || "?"} ${o.price || ""}€ ${o.availability}`).join(" ; ") || "aucune")
       : ""));
-  out(st.length ? ["Derniers relevés :", ...st] : "Pas encore de relevé : cliquez sur « Vérifier maintenant ».");
+  const kj = Object.values((await chrome.storage.local.get("kjState")).kjState || {}).map((v) =>
+    `King Jouet — ${v.name}  (relevé à ${when(v.at)})\n   en ligne : ${v.status}\n   ` +
+    (Object.values(v.stores || {}).filter((x) => /^(06|83|04|05|13|84)/.test(x.cp || "")).map((x) => `${x.name} : ${x.text}`).join("\n   ") || "magasins : —"));
+  const all = st.concat(kj);
+  out(all.length ? ["Derniers relevés :", ...all] : "Pas encore de relevé : cliquez sur « Vérifier maintenant ».");
 });
 
 $("save").onclick = async () => {
-  const products = $("products").value.split("\n").map(clean).filter((u) => u.startsWith("https://www.fnac.com/"));
+  const products = $("products").value.split("\n").map(clean)
+    .filter((u) => u.startsWith("https://www.fnac.com/") || /^https:\/\/www\.king-jouet\.com\/.*\/ref-\d+-/.test(u));
   await chrome.storage.local.set({ webhook: $("webhook").value.trim(), zoneHooks: $("zoneHooks").value.trim(), webhook06: "", products, intervalMinutes: Number($("interval").value) || 1 });
   await chrome.runtime.sendMessage("reschedule");
   $("products").value = products.join("\n");

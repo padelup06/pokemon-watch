@@ -13,15 +13,15 @@ pre{background:#f3f4f6;padding:8px;white-space:pre-wrap;font-size:12px}.muted{co
 <label for="zoneHooks">Salons de région (facultatif)</label>
 <textarea id="zoneHooks" style="height:70px" placeholder="Collez ici tout le contenu de webhooks-regions.txt (lignes 06=…, paca=…)"></textarea>
 <p class="muted">Fnac du 06 et de Monaco → salon 06 ; Toulon, Aix, Marseille… → salon PACA ; les autres régions (Paris, Lyon, Toulouse…) sont vérifiées une par une, à tour de rôle, chacune dans son salon.</p>
-<label for="products">Fiches Fnac à surveiller (une par ligne)</label>
+<label for="products">Fiches Fnac et King Jouet à surveiller (une par ligne)</label>
 <textarea id="products"></textarea>
 <label for="interval">Vérifier le stock en ligne toutes les (minutes) — magasins : un tour sur trois</label>
 <input id="interval" type="number" min="1" value="1">
-<p class="muted">Gardez Chrome ouvert. Les fiches s'ouvrent brièvement en arrière-plan puis se referment.</p>
+<p class="muted">Gardez Chrome ouvert. Les fiches s'ouvrent brièvement en arrière-plan puis se referment. King Jouet : stock en ligne et de tous les magasins (06 à chaque tour, les autres régions à tour de rôle), toutes les 5 min.</p>
 <button id="save">Enregistrer</button><button id="test">Tester Discord</button><button id="now">Vérifier maintenant</button>
 <pre id="out"></pre>
 <div id="capbox" hidden>
-<label>Appels « magasins » notés sur fnac.com</label>
+<label>Appels « magasins » notés sur fnac.com et king-jouet.com</label>
 <p class="muted">Copiez ce bloc et envoyez-le pour activer le suivi de tous les magasins.</p>
 <button id="copycap">Copier</button><button id="clearcap">Effacer</button>
 <pre id="cap"></pre>

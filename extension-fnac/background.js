@@ -1,7 +1,7 @@
 // Service worker : toutes les N minutes, ouvre chaque fiche dans un onglet en arrière-plan
 // (votre navigateur, votre session, comme si vous la consultiez), lit la disponibilité,
 // referme l'onglet, et alerte sur Discord quand un produit devient achetable.
-importScripts("extract.js");
+importScripts("extract.js", "kingjouet.js");
 
 const DEFAULTS = {
   webhook: "",
@@ -33,12 +33,18 @@ async function schedule() {
 chrome.runtime.onInstalled.addListener(schedule);
 chrome.runtime.onStartup.addListener(schedule);
 chrome.alarms.onAlarm.addListener((a) => {
-  if (a.name === "pokewatch") checkAll().catch((e) => console.warn("Pokémon Watch :", e));
+  if (a.name === "pokewatch") {
+    checkAll().catch((e) => console.warn("Pokémon Watch :", e));
+    checkKingJouet().catch((e) => console.warn("Pokémon Watch (King Jouet) :", e));
+  }
 });
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg === "defaults") reply(DEFAULTS.products);
   if (msg === "reschedule") schedule().then(() => reply(true));
-  if (msg === "check-now") checkAll(true).then(reply, (e) => reply(`Erreur : ${e}`));
+  if (msg === "check-now") {
+    Promise.all([checkAll(true), checkKingJouet(true)])
+      .then(([fnac, kj]) => reply([].concat(fnac || [], kj || [])), (e) => reply(`Erreur : ${e}`));
+  }
   if (msg === "test-discord") {
     (async () => {
       const main = await sendDiscord("✅ Test Pokémon Watch — Fnac : les alertes en ligne arrivent bien ici.");
@@ -191,7 +197,7 @@ async function checkAll(force = false) {
     const cities = [...Array(CITIES_PER_ROUND).keys()].map((i) => FNAC_REGIONS[(regionIdx + i) % FNAC_REGIONS.length])
       .map(([key, term, lat, lon, radius]) => ({ key, term, lat, lon, radius }));
     let mode = searchMode;
-    for (const url of products) {
+    for (const url of products.filter((u) => !isKingJouet(u))) {  // King Jouet : kingjouet.js
       let r;
       try {
         r = await readProduct(url, withStores ? cities : null, mode, withStores);

@@ -1,10 +1,12 @@
-// Exécuté dans les pages fnac.com : note les appels que la page fait elle-même vers
-// fnac.com au sujet des magasins et du stock (ex. le panneau « Retirer en magasin »),
-// pour savoir comment la Fnac obtient la disponibilité magasin par magasin.
+// Exécuté dans les pages fnac.com et king-jouet.com : note les appels que la page fait elle-même vers
+// son propre site au sujet des magasins et du stock (ex. le panneau « Retirer en magasin »),
+// pour savoir comment le site obtient la disponibilité magasin par magasin.
 // Rien n'est envoyé ailleurs : les relevés restent dans l'extension.
 (() => {
   const RELEVANT = /store|shop|magasin|stock|availab|dispo|retrait|collect|pickup/i;
-  const same = (u) => { try { return new URL(u, location.href).origin === location.origin; } catch (e) { return false; } };
+  // Même site, sous-domaines compris (ex. api.king-jouet.com pour www.king-jouet.com).
+  const base = location.hostname.split(".").slice(-2).join(".");
+  const same = (u) => { try { return new URL(u, location.href).hostname.endsWith(base); } catch (e) { return false; } };
   const send = (method, url, body, status, text) => {
     if (!same(url) || /\.(js|css|png|jpe?g|webp|svg|woff2?)(\?|$)/i.test(url)) return;
     if (!RELEVANT.test(url) && !RELEVANT.test((text || "").slice(0, 4000))) return;

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Pokémon Watch — Fnac",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "description": "Surveille vos fiches Fnac dans votre propre navigateur et vous alerte sur Discord quand un produit revient en stock.",
   "permissions": [
     "alarms",
@@ -12,6 +12,7 @@
   ],
   "host_permissions": [
     "https://www.fnac.com/*",
+    "https://www.king-jouet.com/*",
     "https://discord.com/api/webhooks/*"
   ],
   "background": {
@@ -28,7 +29,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.fnac.com/*"
+        "https://www.fnac.com/*",
+        "https://www.king-jouet.com/*"
       ],
       "js": [
         "capture-main.js"
@@ -38,7 +40,8 @@
     },
     {
       "matches": [
-        "https://www.fnac.com/*"
+        "https://www.fnac.com/*",
+        "https://www.king-jouet.com/*"
       ],
       "js": [
         "capture-relay.js"

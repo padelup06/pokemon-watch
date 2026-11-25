@@ -43,6 +43,7 @@ https://www.lagranderecre.fr/cartes-a-collectionner/?ean=0196214144972 | 30e ann
 
 # E.Leclerc — recherche par code-barres : alerte « fiche en ligne » dès que Leclerc publie la
 # fiche, puis suivi du stock en ligne vendu par Leclerc (retrait gratuit en magasin).
+https://www.e.leclerc/fp/pokemon-bundle-6-boosters-0820650556425 | Bundle 6 boosters (Leclerc) — EAN 0820650556425
 https://www.e.leclerc/recherche?q=0196214147225 | 30e anniv. — Coffret Collection Poster (Leclerc)
 https://www.e.leclerc/recherche?q=0196214147102 | 30e anniv. — Coffret 4 boosters Nymphali-ex (Leclerc)
 https://www.e.leclerc/recherche?q=0196214147164 | 30e anniv. — Coffret 4 boosters Amphinobi-ex (Leclerc)

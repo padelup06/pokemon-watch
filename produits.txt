@@ -99,3 +99,7 @@ https://www.cdiscount.com/juniors/jeux-de-societe-cartes/30e-anniversaire-lot-de
 
 # Smyths Toys — site protégé (Incapsula) : lu par le navigateur du PC uniquement.
 https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-collectionner/cartes-pokemon/pokemon-lot-6-boosters-ev03-5-ecarlate-et-violet/p/228035 | EV3.5 151 — Bundle 6 boosters (Smyths)
+
+# Maison de la Presse — site protégé (Cloudflare) : lu par le navigateur du PC uniquement.
+# Rayon Pokémon : alerte à chaque nouvelle fiche ; ajoutez ici les fiches à suivre.
+https://www.maisondelapresse.com/les-heros-de-nos-enfants/pokemon/manufacturer-the_pokemon_company.html | Rayon Pokémon (Maison de la Presse)

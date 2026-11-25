@@ -326,6 +326,10 @@ class Watcher:
             if not self._too_many(retailer, e):
                 print(f"[{retailer.name}] ⚠ {e} : {url}")
             return
+        if self._queue_opened(url, retailer, html, label):
+            return
+        if retailer.key == "maisondelapresse" and not retailer.product_url.fullmatch(url.split("?")[0]):
+            return self._watch_listing(url, retailer, html, label)
         if retailer.use_keywords:
             av = parse_availability(html, retailer.in_stock_keywords, retailer.out_of_stock_keywords, retailer.own_seller, retailer.seller_marker)
         else:
@@ -376,6 +380,36 @@ class Watcher:
         # Cultura : son API magasins répond même quand la fiche n'est pas (encore) visible.
         if self.zones and retailer.key in STORE_RETAILERS and (av.status != UNKNOWN or ean or retailer.key == "cultura"):
             self.check_stores(url, retailer, name, html, ean)
+
+    def _queue_opened(self, url: str, retailer, html: str, label: str | None) -> bool:
+        """File d'attente virtuelle (Queue-it…) à la place de la page : une vente commence.
+        On prévient (au plus une fois par heure et par enseigne), sans chercher à la passer."""
+        final = (getattr(self.fetcher, "last_url", None) or "") if retailer.needs_browser else ""
+        if not (re.search(r"queue-it|/queue|waitingroom|waiting-room", final, re.I)
+                or re.search(r"queue-it\.net|file d.attente virtuelle|salle d.attente virtuelle", html[:20000], re.I)):
+            return False
+        key = f"queue_{retailer.key}"
+        if time.time() - float(self.store.get_meta(key) or 0) > 3600:
+            self.store.set_meta(key, str(time.time()))
+            self._send(f"🚦 FILE D'ATTENTE OUVERTE chez {retailer.name} — une vente démarre sans doute.\n"
+                       f"{label or ''}\n{url}".replace("\n\n", "\n"))
+        print(f"[{retailer.name}] file d'attente en place : {url}", flush=True)
+        return True
+
+    def _watch_listing(self, url: str, retailer, html: str, label: str | None) -> None:
+        """Page de rayon (ex. Pokémon chez Maison de la Presse) : alerte pour chaque nouvelle fiche
+        Pokémon, puis la fiche est suivie comme les autres (si track_listing_products)."""
+        links = [u for u in extract_product_links(html, url) if "pokemon" in u.lower()]
+        key = f"listing|{url}"
+        known = json.loads(self.store.get_meta(key) or "null")
+        first = known is None
+        known = set(known or [])
+        new = [u for u in links if u not in known]
+        print(f"[{retailer.name}] rayon : {len(links)} fiches Pokémon, {0 if first else len(new)} nouvelles", flush=True)
+        for u in ([] if first else new):
+            self._send(f"🆕 NOUVELLE FICHE chez {retailer.name}\n{u}")
+        self.store.set_meta(key, json.dumps(sorted(known | set(links))))
+        return None
 
     def check_ean_search(self, url: str, label: str | None) -> None:
         """Recherche par code-barres (produit sans fiche en ligne) : on guette l'apparition

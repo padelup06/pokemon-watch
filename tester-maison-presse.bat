@@ -2,7 +2,7 @@
 chcp 65001 >nul
 set PYTHONUTF8=1
 cd /d "%~dp0"
-echo Test Maison de la Presse : un navigateur s'ouvre (1 minute). Cochez la case anti-robot si elle apparait.
+echo Test Maison de la Presse : une fenetre de navigateur s'ouvre. Si une case "Je suis humain" apparait, cochez-la (vous avez 2 minutes).
 python -m pokewatch test "https://www.maisondelapresse.com/les-heros-de-nos-enfants/pokemon/manufacturer-the_pokemon_company.html" --visible --premiere-fiche > test-maison-presse.txt 2>&1
 type test-maison-presse.txt
 echo.

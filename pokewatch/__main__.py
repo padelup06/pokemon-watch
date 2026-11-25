@@ -92,7 +92,7 @@ def main(argv: list[str] | None = None) -> int:
 
         from .instore import CULTURA, _graphql_url
 
-        fetcher = Fetcher("always", headless=not args.visible)
+        fetcher = Fetcher("always", headless=not args.visible, minimized=not args.visible)
 
         def gql(title, q):
             try:
@@ -136,7 +136,7 @@ def main(argv: list[str] | None = None) -> int:
         import json as _json
         import urllib.parse as _up
 
-        fetcher = Fetcher("always", headless=not args.visible)
+        fetcher = Fetcher("always", headless=not args.visible, minimized=not args.visible)
         fields = "total_count,items{sku,name,ean,url_key,stock_item_extra{front_availability,offer{seller_code,qty}}}"
 
         def ask(title, q):
@@ -255,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
 
         from .instore import CULTURA, _graphql_url
 
-        fetcher = Fetcher("always", headless=not args.visible)
+        fetcher = Fetcher("always", headless=not args.visible, minimized=not args.visible)
 
         def ask(title, q, headers=None):
             try:
@@ -284,7 +284,7 @@ def main(argv: list[str] | None = None) -> int:
 
         from .instore import CULTURA, _graphql_url
 
-        fetcher = Fetcher("always", headless=not args.visible)
+        fetcher = Fetcher("always", headless=not args.visible, minimized=not args.visible)
         try:
             # 1. Plan du site (publié pour Google) : toutes les fiches, même absentes de la recherche.
             try:
@@ -326,7 +326,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "cultura-refs":
         from .instore import CULTURA, _graphql_url
 
-        fetcher = Fetcher("always", headless=not args.visible)
+        fetcher = Fetcher("always", headless=not args.visible, minimized=not args.visible)
         try:
             refs = list(range(args.debut, args.fin + 1))
             for i in range(0, len(refs), 100):
@@ -363,7 +363,7 @@ def main(argv: list[str] | None = None) -> int:
 
         from .instore import cultura_ean_probe, cultura_find_by_ean, cultura_name_probe
 
-        fetcher = Fetcher("always", headless=not args.visible)
+        fetcher = Fetcher("always", headless=not args.visible, minimized=not args.visible)
         try:
             for how, res in cultura_ean_probe(fetcher, args.ean):
                 print(f"--- {how} ---\n{_json.dumps(res, ensure_ascii=False)[:1500]}")
@@ -394,7 +394,7 @@ def main(argv: list[str] | None = None) -> int:
         if "cultura.com" in args.url:
             args.url = args.url.split("?")[0].split("#")[0]  # lien copié avec « ?__cf_chl_tk=… »
         retailer = retailer_for_url(args.url)
-        fetcher = Fetcher(args.browser, headless=not args.visible)
+        fetcher = Fetcher(args.browser, headless=not args.visible, minimized=not args.visible)
         try:
             html = fetcher.get(args.url, retailer.needs_browser)
         except FetchError as e:
@@ -413,7 +413,7 @@ def main(argv: list[str] | None = None) -> int:
         if links:
             print(f"Liens produits trouvés sur la page : {len(links)} (ex. {links[0]})")
             if args.premiere_fiche and not args.cp:
-                f2 = Fetcher(args.browser, headless=not args.visible)
+                f2 = Fetcher(args.browser, headless=not args.visible, minimized=not args.visible)
                 try:
                     html2 = f2.get(links[0], retailer.needs_browser)
                     av2 = parse_availability(html2, seller=retailer.own_seller, seller_marker=retailer.seller_marker)

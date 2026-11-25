@@ -167,8 +167,9 @@ class BrowserFetcher:
             except Exception:
                 pass  # certaines pages ne sont jamais "idle" (trackers) : on prend ce qu'on a
             # Vérification « Un instant… » (Cloudflare) : dans une vraie fenêtre, elle se valide
-            # généralement seule en quelques secondes. On lui laisse jusqu'à 20 s.
-            for _ in range(20):
+            # généralement seule en quelques secondes. On lui laisse jusqu'à 20 s ; fenêtre
+            # affichée (tests) : 2 min, le temps de cocher soi-même la case « je suis humain ».
+            for _ in range(120 if not self.headless and not self.minimized else 20):
                 if not re.search(r"un instant|just a moment", page.title() or "", re.I):
                     break
                 page.wait_for_timeout(1000)

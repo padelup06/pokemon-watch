@@ -102,6 +102,17 @@ RETAILERS: dict[str, Retailer] = {
             own_seller=re.compile(r"carrefour", re.I),
         ),
         Retailer(
+            key="smyths",
+            name="Smyths Toys",
+            domains=("smythstoys.com",),
+            # Fiches : https://www.smythstoys.com/fr/fr-fr/…/p/228035
+            product_url=re.compile(r"https://www\.smythstoys\.com/fr/fr-fr/[^\"'?#\s]+/p/\d+"),
+            in_stock_keywords=_COMMON_IN,
+            out_of_stock_keywords=_COMMON_OUT,
+            needs_browser=True,  # Incapsula : passe seulement dans la fenêtre de navigateur du PC
+            use_keywords=False,  # schema.org seulement : pas de devinette par mots-clés
+        ),
+        Retailer(
             key="kingdultes",
             name="KingDultes",
             domains=("kingdultes.com",),

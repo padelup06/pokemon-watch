@@ -5,6 +5,7 @@
 # Les lignes qui commencent par # sont ignorées.
 
 # JouéClub — 30e anniversaire (le 5 octobre 2026 : tous en rupture en ligne et dans les 6 JouéClub du 06)
+https://www.joueclub.fr/pokemon/pokemon-compagny-coffret-ecarlate-et-violet-151-bundle-6-boosters-0820650556425.html | EV3.5 151 — Bundle 6 boosters (JouéClub) — EAN 0820650556425
 https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-coffret-4-boosters-amphinobi-ex-0196214147164.html | 30e anniv. — Coffret 4 boosters Amphinobi-ex
 https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-coffret-4-boosters-nymphali-ex-0196214147102.html | 30e anniv. — Coffret 4 boosters Nymphali-ex
 https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-coffret-collection-poster-0196214147225.html | 30e anniv. — Coffret Collection Poster
@@ -43,7 +44,7 @@ https://www.lagranderecre.fr/cartes-a-collectionner/?ean=0196214144972 | 30e ann
 
 # E.Leclerc — recherche par code-barres : alerte « fiche en ligne » dès que Leclerc publie la
 # fiche, puis suivi du stock en ligne vendu par Leclerc (retrait gratuit en magasin).
-https://www.e.leclerc/fp/pokemon-bundle-6-boosters-0820650556425 | Bundle 6 boosters (Leclerc) — EAN 0820650556425
+https://www.e.leclerc/fp/pokemon-bundle-6-boosters-0820650556425 | EV3.5 151 — Bundle 6 boosters (Leclerc) — EAN 0820650556425
 https://www.e.leclerc/recherche?q=0196214147225 | 30e anniv. — Coffret Collection Poster (Leclerc)
 https://www.e.leclerc/recherche?q=0196214147102 | 30e anniv. — Coffret 4 boosters Nymphali-ex (Leclerc)
 https://www.e.leclerc/recherche?q=0196214147164 | 30e anniv. — Coffret 4 boosters Amphinobi-ex (Leclerc)
@@ -63,6 +64,7 @@ https://www.e.leclerc/recherche?q=0196214145030 | 30e anniv. — Collection auto
 https://www.e.leclerc/recherche?q=0196214145092 | 30e anniv. — Collection autocollant Lucario (Leclerc)
 
 # Carrefour — recherche par code-barres (PC uniquement : site protégé, fenêtre de navigateur).
+https://www.carrefour.fr/p/coffret-cartes-pokemon-151-compagny-coffret-ecarlate-et-violet-asmodee-0820650556425 | EV3.5 151 — Bundle 6 boosters (Carrefour)
 https://www.carrefour.fr/s?q=0196214147225 | 30e anniv. — Coffret Collection Poster (Carrefour)
 https://www.carrefour.fr/s?q=0196214147102 | 30e anniv. — Coffret 4 boosters Nymphali-ex (Carrefour)
 https://www.carrefour.fr/s?q=0196214147164 | 30e anniv. — Coffret 4 boosters Amphinobi-ex (Carrefour)
@@ -91,3 +93,6 @@ https://www.cdiscount.com/juniors/jeux-de-societe-cartes/pokemon-30eme-anniversa
 https://www.cdiscount.com/juniors/jeux-de-societe-cartes/pokemon-duopack-2-boosters-30e-anniversaire/f-120791604-pok196214152311.html | 30e anniv. — 2 boosters Évoli (Cdiscount)
 https://www.cdiscount.com/juniors/jeux-de-societe-cartes/pokemon-etb-coffret-dresseur-d-elite-30e-anniv/f-120791604-pok196214144835.html | 30e anniv. — Coffret Dresseur d'Élite (Cdiscount)
 https://www.cdiscount.com/juniors/jeux-de-societe-cartes/30e-anniversaire-lot-de-2-tripacks-collection-au/f-120791604-pok196214144972.html | 30e anniv. — Collection autocollant (version aléatoire) (Cdiscount)
+
+# Smyths Toys — site protégé (Incapsula) : lu par le navigateur du PC uniquement.
+https://www.smythstoys.com/fr/fr-fr/jouets/jeux-de-societe-et-puzzles/cartes-a-collectionner/cartes-pokemon/pokemon-lot-6-boosters-ev03-5-ecarlate-et-violet/p/228035 | EV3.5 151 — Bundle 6 boosters (Smyths)

@@ -15,6 +15,7 @@ https://www.joueclub.fr/pokemon/pokemon-30eme-anniversaire-2-boosters-evoli-0196
 # Fiche dépubliée le 5 octobre (redirige vers la page Pokémon) : alerte dès qu'elle revient en vente
 https://www.joueclub.fr/pokemon/pokemon-bundle-6-boosters-0196214145221.html | Bundle 6 boosters
 # Lot de 2 tripacks : pas encore de fiche JouéClub, mais leurs magasins le connaissent (stock magasin par code-barres)
+https://www.joueclub.fr/pokemon/?ean=0196214155336 | 30e anniv. — Collection Ultra Premium (JouéClub) — EAN 0196214155336
 https://www.joueclub.fr/pokemon/?ean=0196214144972 | 30e anniv. — Collection autocollant (version aléatoire) (JouéClub) — EAN 0196214144972
 # Pokébox, Coffrets Mew / Mewtwo, Règne Delta, classeur : pas encore de fiche JouéClub, mais leurs magasins les connaissent (stock magasin par code-barres)
 https://www.joueclub.fr/pokemon/?ean=0196214146976 | Pokébox Nymphali-ex (JouéClub) — EAN 0196214146976
@@ -44,6 +45,7 @@ https://www.lagranderecre.fr/cartes-a-collectionner/?ean=0196214144972 | 30e ann
 
 # E.Leclerc — recherche par code-barres : alerte « fiche en ligne » dès que Leclerc publie la
 # fiche, puis suivi du stock en ligne vendu par Leclerc (retrait gratuit en magasin).
+https://www.e.leclerc/recherche?q=0196214155336 | 30e anniv. — Collection Ultra Premium (Leclerc)
 https://www.e.leclerc/fp/pokemon-bundle-6-boosters-0820650556425 | EV3.5 151 — Bundle 6 boosters (Leclerc) — EAN 0820650556425
 https://www.e.leclerc/recherche?q=0196214147225 | 30e anniv. — Coffret Collection Poster (Leclerc)
 https://www.e.leclerc/recherche?q=0196214147102 | 30e anniv. — Coffret 4 boosters Nymphali-ex (Leclerc)
@@ -64,6 +66,7 @@ https://www.e.leclerc/recherche?q=0196214145030 | 30e anniv. — Collection auto
 https://www.e.leclerc/recherche?q=0196214145092 | 30e anniv. — Collection autocollant Lucario (Leclerc)
 
 # Carrefour — recherche par code-barres (PC uniquement : site protégé, fenêtre de navigateur).
+https://www.carrefour.fr/p/cartes-a-jouer-et-a-collectionner-collection-ultra-premium-30e-anniversaire-pokemon-0196214155336 | 30e anniv. — Collection Ultra Premium (Carrefour)
 https://www.carrefour.fr/p/coffret-cartes-pokemon-151-compagny-coffret-ecarlate-et-violet-asmodee-0820650556425 | EV3.5 151 — Bundle 6 boosters (Carrefour)
 https://www.carrefour.fr/s?q=0196214147225 | 30e anniv. — Coffret Collection Poster (Carrefour)
 https://www.carrefour.fr/s?q=0196214147102 | 30e anniv. — Coffret 4 boosters Nymphali-ex (Carrefour)
